@@ -90,7 +90,7 @@ class Program(object):
     def __init__(self):
         self.log = Console()
         self.argc = len(sys.argv)
-        self.args = sys.argv
+        self.args = argparse.ArgumentParser()
         self.disks = list()
 
     def cmdString(self):
@@ -101,7 +101,11 @@ class Program(object):
 
     def help(self):
         helpstr = \
-"""<program>  Copyright (C) 2018  Hyd3L
+"""T.U.R.B.O.F.R.E.S.A.
+Turboaggeggio Utile alla Rimorzione di Byte Obrobriosi e di Abominevoli
+File da dischi rigidi Riciclati ed altri Elettronici Sistemi di
+Accumulazione (semi)permanente di dati.
+Copyright (C) 2018  Hyd3L
 This program comes with ABSOLUTELY NO WARRANTY; for details type 'show w'.
 This is free software, and you are welcome to redistribute it
 under certain conditions; type 'show c' for details.

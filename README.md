@@ -1,6 +1,7 @@
 # T.U.R.B.O.F.R.E.S.A.  
-Turboaggeggio Utile alla Rimorzione di Byte Obrobriosi e di Abominevoli  
-File da dischi rigidi Riciclati ed altri Elettronici Sistemi di  
+Turboaggeggio Utile alla Rimorzione di Byte Obrobriosi e di Abominevoli
+File da dischi rigidi Riciclati ed altri Elettronici Sistemi di
+Accumulazione (semi)permanente di dati.
 
 ## TODO
 - [ ] Riscrivere il parsing delle opzioni usando `argparse`
