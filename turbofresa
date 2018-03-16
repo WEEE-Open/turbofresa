@@ -70,3 +70,15 @@ class Console(object):
         if self.printLevel >= ERROR:
             print("error: "+str)
             self.logFile.write(now()+"error: "+str+'\n')
+
+
+"""
+    Task : class for the runnable thread
+
+    @member disk  : the disk dev path (eg. /dev/sdb )
+    @member tasks : things to be done with the disk
+"""
+class Task(object):
+    def __init__(self):
+        self.disk = str()
+        self.tasks = list()
