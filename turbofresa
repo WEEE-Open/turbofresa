@@ -28,7 +28,6 @@ import threading
 
 LOG_PATH = 'log.txt'
 ERROR, WARNING, INFO = range(0,3)
-op_b, op_f, op_p, op_c = range(0,4)
 VERBOSITY = INFO
 
 """
@@ -71,99 +70,3 @@ class Console(object):
         if self.printLevel >= ERROR:
             print("error: "+str)
             self.logFile.write(now()+"error: "+str+'\n')
-
-
-"""
-    Program : Main class
-
-    @member log   : Console instance
-    @member argc  : command line arguments counter
-    @member args  : list of command line arguments
-    @member disks : list of tuples containing the disks paths and the
-                    operations to be accomplished.
-
-    @method cmdString : converts the member args to a string
-    @method help      : printsop_b = op_f = op_p = op_c = False an help message and quit
-    @method parseArgs : parse arguments and store the result in member disks
-"""
-class Program(object):
-    def __init__(self):
-        self.log = Console()
-        self.argc = len(sys.argv)
-        self.args = argparse.ArgumentParser()
-        self.disks = list()
-
-    def cmdString(self):
-        cmd = str()
-        for p in self.args:
-            cmd += (p + " ")
-        return cmd
-
-    def help(self):
-        helpstr = \
-"""T.U.R.B.O.F.R.E.S.A.
-Turboaggeggio Utile alla Rimorzione di Byte Obrobriosi e di Abominevoli
-File da dischi rigidi Riciclati ed altri Elettronici Sistemi di
-Accumulazione (semi)permanente di dati.
-Copyright (C) 2018  Hyd3L
-This program comes with ABSOLUTELY NO WARRANTY; for details type 'show w'.
-This is free software, and you are welcome to redistribute it
-under certain conditions; type 'show c' for details.
-
-usage: <program> -options /dev/sdX /dev/sdY -options /dev/sdZ ...
-
-options:
-  -b : search for bad blocks on the disk plate
-  -f : fast mode (single pass)
-  -p : paranoid mode (multiple passes)
-  -c : final check
-  --shutdown :
-"""
-        print(helpstr)
-        quit()
-
-    def parseArgs(self):
-        self.log.info('user: '+self.cmdString())
-        if self.argc < 2:
-            self.log.error("Invalid syntax detected.")
-            quit()
-
-        if self.args[1] == '-h' or self.args[1] == '--help':
-            self.help()
-
-        for i in range(1, self.argc):
-            ops = [False, False, False, False]
-
-            if self.args[i].startswith('-'):
-                for o in range(1,len(self.args[i])):
-                    if 'b' in self.args[i]:
-                        ops[op_b] = True
-                    if 'f' in self.args[i]:
-                        ops[op_f] = True
-                    if 'p' in self.args[i]:
-                        ops[op_p] = True
-                    if 'c' in self.args[i]:
-                        ops[op_c] = True
-                i += 1
-                if not self.args[i].startswith('/'):
-                    self.log.error("Invalid syntax detected.")
-                    quit()
-                while self.args[i].startswith('/') and not i+1 == self.argc:
-                    self.disks.append((self.args[i], ops))
-                    if not i + 1 == self.argc:
-                        i += 1
-            else:
-                self.log.error("Invalid syntax detected.")
-                quit()
-
-
-    def run(self):
-        pass
-
-    def __del__(self):
-        if self.log.logFile is not None:
-            self.log.logFile.close()
-            print("Log file closed.")
-
-main = Program()
-main.parseArgs()
