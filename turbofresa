@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
     T.U.R.B.O.F.R.E.S.A.
-    Turboaggeggio Utile alla Rimorzione di Byte Obrobriosi e di Abominevoli
+    Turboaggeggio Utile alla Rimorzione di Byte Obrobriosi e di abominevoli
     File da dischi rigidi Riciclati ed altri Elettronici Sistemi di
     Accumulazione (semi)permanente di dati.
     Copyright (C) 2018  Hyd3L
@@ -27,7 +27,9 @@ import threading
 
 LOG_PATH = '../log.txt'
 ERROR, WARNING, INFO = range(0,3)
+op_b, op_f, op_p, op_c = range(0,4)
 VERBOSITY = INFO
+
 
 """
     @return a formatted string containing current date and time
@@ -50,8 +52,9 @@ def now():
 class Console(object):
     def __init__(self):
         self.printLevel = VERBOSITY
-        self.logFile = open(LOG_PATH, "a")
-        if self.logFile is None:
+        try:
+            self.logFile = open(LOG_PATH, "a")
+        except IOError:
             print("error: Permission denied. Log file couldn't be created.")
             sys.exit(1)
 
@@ -69,6 +72,13 @@ class Console(object):
         if self.printLevel >= ERROR:
             print("error: "+str)
             self.logFile.write(now()+"error: "+str+'\n')
+
+    def exit(self):
+        self.logFile.write(now()+"Quit!"+'\n')
+        self.logFile.close()
+
+# Initialize log
+log = Console()
 
 
 """
@@ -95,11 +105,45 @@ class Task(object):
 
 """
 	Parse command line args.
+    tasks : list of tuples containing ("/dev/sdX", [op_b, op_f, op_p, op_c])
 	@return list of Task() objects, ready to be run
 """
 def parseArgs():
-	nargs = len(sys.argv)
-	args = sys.argv
+    argc = len(sys.argv)
+    args = sys.argv
+    tasks = list()
 
-	if nargs < 2:
+    try:
+        if argc < 2:
+            raise SyntaxError
+        elif args[1] == '-h' or args[1] == '--help':
+            # Print the help message and quit
             pass
+        else:
+            for i in range(1, argc):
+                ops = [False, False, False, False]
+                if args[i].startswith('-'):
+                    for o in range(1,len(args[i])):
+                        if 'b' in args[i]:
+                            ops[op_b] = True
+                        if 'f' in args[i]:
+                            ops[op_f] = True
+                        if 'p' in args[i]:
+                            ops[op_p] = True
+                        if 'c' in args[i]:
+                            ops[op_c] = True
+                    i += 1
+                    while args[i].startswith('/'):
+                        tasks.append((args[i], ops))
+                        if i + 1 == argc: break
+                        i += 1
+                    if not args[i].startswith('/'):
+                        if not args[i].startswith('-'):
+                            raise SyntaxError
+    except SyntaxError:
+        log.error("Invalid syntax detected.")
+        log.quit()
+        sys.exit(1)
+    return tasks
+
+tasks = parseArgs()
