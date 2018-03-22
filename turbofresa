@@ -90,9 +90,9 @@ log = Console()
     @method run : creates a new thread and runs it
 """
 class Task(object):
-    def __init__(self):
-        self.disk = str()
-        self.tasks = list()
+    def __init__(self, path, ops):
+        self.disk = path
+        self.tasks = ops
 
     def device(self):
         return self.disk
@@ -105,7 +105,6 @@ class Task(object):
 
 """
 	Parse command line args.
-    tasks : list of tuples containing ("/dev/sdX", [op_b, op_f, op_p, op_c])
 	@return list of Task() objects, ready to be run
 """
 def parseArgs():
@@ -134,7 +133,7 @@ def parseArgs():
                             ops[op_c] = True
                     i += 1
                     while args[i].startswith('/'):
-                        tasks.append((args[i], ops))
+                        tasks.append(Task(args[i], ops))
                         if i + 1 == argc: break
                         i += 1
                     if not args[i].startswith('/'):
@@ -142,7 +141,7 @@ def parseArgs():
                             raise SyntaxError
     except SyntaxError:
         log.error("Invalid syntax detected.")
-        log.quit()
+        log.exit()
         sys.exit(1)
     return tasks
 
