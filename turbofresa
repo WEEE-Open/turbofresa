@@ -22,11 +22,10 @@
 
 import os
 import sys
-import argparse
 import datetime
 import threading
 
-LOG_PATH = 'log.txt'
+LOG_PATH = '../log.txt'
 ERROR, WARNING, INFO = range(0,3)
 VERBOSITY = INFO
 
@@ -77,8 +76,30 @@ class Console(object):
 
     @member disk  : the disk dev path (eg. /dev/sdb )
     @member tasks : things to be done with the disk
+
+    @method run : creates a new thread and runs it
 """
 class Task(object):
     def __init__(self):
         self.disk = str()
         self.tasks = list()
+
+    def device(self):
+        return self.disk
+
+    def operations(self):
+        return self.tasks
+
+    def run(self):
+        pass
+
+"""
+	Parse command line args.
+	@return list of Task() objects, ready to be run
+"""
+def parseArgs():
+	nargs = len(sys.argv)
+	args = sys.argv
+
+	if nargs < 2:
+            pass
