@@ -26,9 +26,12 @@ import datetime
 import threading
 
 LOG_PATH = '../log.txt'
+# Verbosity levels
 ERROR, WARNING, INFO = range(0,3)
-op_b, op_f, op_p, op_c = range(0,4)
 VERBOSITY = INFO
+
+# Disk operations
+o_bblocks, o_fast, o_paranoia, o_check = range(0,4)
 
 
 """
@@ -58,27 +61,36 @@ class Console(object):
             print("error: Permission denied. Log file couldn't be created.")
             sys.exit(1)
 
-    def info(self, str):
+    def info(self, msg, toStdOut=True):
         if self.printLevel >= INFO:
-            print("info: "+str)
-            self.logFile.write(now()+"info: "+str+'\n')
+            if toStdOut is True:
+                print("info: "+msg)
+            self.logFile.write(now()+"info: "+msg+'\n')
 
-    def warn(self, str):
+    def warn(self, msg, toStdOut=True):
         if self.printLevel >= WARNING:
-            print("warning: "+str)
-            self.logFile.write(now()+"warning: "+str+'\n')
+            if toStdOut is True:
+                print("warning: "+msg)
+            self.logFile.write(now()+"warning: "+msg+'\n')
 
-    def error(self, str):
+    def error(self, msg, toStdOut=True):
         if self.printLevel >= ERROR:
-            print("error: "+str)
-            self.logFile.write(now()+"error: "+str+'\n')
+            if toStdOut is True:
+                print("error: "+msg)
+            self.logFile.write(now()+"error: "+msg+'\n')
 
     def exit(self):
-        self.logFile.write(now()+"Quit!"+'\n')
         self.logFile.close()
 
 # Initialize log
 log = Console()
+
+
+""""
+    Moron : Exception to be raised in case of morons using this script
+"""
+class Moron(BaseException):
+    pass
 
 
 """
@@ -95,21 +107,26 @@ class Task(object):
         self.disk = path
         self.tasks = ops
 
-    def device(self):
-        return self.disk
-
-    def operations(self):
-        return self.tasks
-
     def sanityCheck(self):
         try:
-            if os.path.isfile(self.disk) is False:
+            if os.path.exists(self.disk) is False:
                 raise FileNotFoundError
         except FileNotFoundError:
             log.error("Device "+self.disk+" not found.")
+            log.exit()
+            sys.exit(1)
+        try:
+            if '/dev/sda' in self.disk:
+                raise Moron
+        except Moron:
+            moron_name = input("Type your name and press ENTER: ")
+            log.error("%s is trying to fuck up everything."%(moron_name), False)
+            print("Thank you %s! Now go and clean the Groot please."%(moron_name))
+            log.exit()
             sys.exit(1)
 
     def run(self):
+        # TODO: To be implemented
         pass
 
 
@@ -126,7 +143,7 @@ def parseArgs():
         if argc < 2:
             raise SyntaxError
         elif args[1] == '-h' or args[1] == '--help':
-            # TODO: Print the help message and quit
+            # TODO: To be implemented
             pass
         else:
             for i in range(1, argc):
@@ -134,13 +151,13 @@ def parseArgs():
                 if args[i].startswith('-'):
                     for o in range(1,len(args[i])):
                         if 'b' in args[i]:
-                            ops[op_b] = True
+                            ops[o_bblocks] = True
                         if 'f' in args[i]:
-                            ops[op_f] = True
+                            ops[o_fast] = True
                         if 'p' in args[i]:
-                            ops[op_p] = True
+                            ops[o_paranoia] = True
                         if 'c' in args[i]:
-                            ops[op_c] = True
+                            ops[o_check] = True
                     i += 1
                     while args[i].startswith('/'):
                         tasks.append(Task(args[i], ops))
