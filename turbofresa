@@ -86,9 +86,11 @@ class Console(object):
 log = Console()
 
 
-""""
-    Moron : Exception to be raised in case of morons using this script
-"""
+# DriveNotFoundError : Exception to handle /dev/sdX not found
+class DriveNotFoundError(BaseException):
+    pass
+
+# Moron : Exception to be raised in case of morons using this script
 class Moron(BaseException):
     pass
 
@@ -110,9 +112,9 @@ class Task(object):
     def sanityCheck(self):
         try:
             if os.path.exists(self.disk) is False:
-                raise FileNotFoundError
-        except FileNotFoundError:
-            log.error("Device "+self.disk+" not found.")
+                raise DriveNotFoundError
+        except DriveNotFoundError:
+            log.error("Hard drive "+self.disk+" not found.")
             log.exit()
             sys.exit(1)
         try:
