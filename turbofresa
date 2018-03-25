@@ -26,7 +26,9 @@ import datetime
 import threading
 import subprocess
 
+# Path of the log file
 LOG_PATH = '/home/piall/.local/share/turbofresa/log.txt'
+
 # Verbosity levels
 ERROR, WARNING, INFO = range(0,3)
 VERBOSITY = INFO
@@ -34,10 +36,7 @@ VERBOSITY = INFO
 # Disk operations
 o_bblocks, o_pialla, o_check = range(0,3)
 
-
-"""
-    @return a formatted string containing current date and time
-"""
+# Function that returns a formatted string with current time
 def now():
     return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S] ')
 
@@ -105,7 +104,7 @@ class Moron(BaseException):
     Task : class for the runnable thread
 
     @member disk   : the disk dev path (eg. /dev/sdb )
-    @member blocks : number of blocks of the hard drive
+    @member nblocks : number of blocks of the hard drive
     @member tasks  : things to be done with the disk
     @member proc   : current running subprocess
 
@@ -143,7 +142,7 @@ class Task(threading.Thread):
             log.exit()
             sys.exit(1)
 
-    def thread(self):
+    def run(self):
         if self.tasks[o_bblocks] is True:
             log.proc("Started badblocks on %s (rw 0xFF)."%self.disk)
             self.proc = subprocess.run(['sudo','badblocks','-svw','-t','0xff',self.disk])
@@ -152,10 +151,7 @@ class Task(threading.Thread):
             self.proc = subprocess.run(['sudo','dd','bs=4M','if=/dev/zero','of=%s'%self.disk,'conv=sync'])
         if self.tasks[o_check] is True:
             self.proc = log.proc("Started checking %s clean status."%self.disk)
-            pass
-
-    def run(self):
-        pass
+            # TODO: To be implemented
 
 """
 	Parse command line args.
@@ -203,9 +199,13 @@ def main():
     for t in tasks:
         t.sanityCheck()
         t.blocks()
+    # Starting threads
     for t in tasks:
-        # manage threads here
-        pass
+        t.start()
+    # Syncing threads
+    for t in tasks:
+        t.join()
+    log.exit()
 
 
 if __name__ == '__main__':
