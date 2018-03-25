@@ -28,6 +28,7 @@ import subprocess
 
 # Path of the log file
 LOG_PATH = '/home/piall/.local/share/turbofresa/log.txt'
+# LOG_PATH = '../log.txt'
 
 # Verbosity levels
 ERROR, WARNING, INFO = range(0,3)
@@ -113,6 +114,7 @@ class Moron(BaseException):
 """
 class Task(threading.Thread):
     def __init__(self, dev, ops):
+        threading.Thread.__init__(self)
         self.disk = dev
         self.nblocks = 0
         self.tasks = ops
@@ -146,21 +148,25 @@ class Task(threading.Thread):
         if self.tasks[o_bblocks] is True:
             log.proc("Started badblocks on %s (rw 0xFF)."%self.disk)
             self.proc = subprocess.run(['sudo','badblocks','-svw','-t','0xff',self.disk])
+            log.proc("Ended badblocks on %s (rw 0xFF)."%self.disk)
         if self.tasks[o_pialla] is True:
             log.proc("Started filling %s with 0x00."%self.disk)
             self.proc = subprocess.run(['sudo','dd','bs=4M','if=/dev/zero','of=%s'%self.disk,'conv=sync'])
+            log.proc("Ended filling %s with 0x00."%self.disk)
         if self.tasks[o_check] is True:
             self.proc = log.proc("Started checking %s clean status."%self.disk)
             # TODO: To be implemented
+            self.proc = log.proc("Ended checking %s clean status."%self.disk)
+
 
 """
 	Parse command line args.
 	@return list of Task() objects, ready to be run
 """
 def parseArgs():
+    tasks = list()
     argc = len(sys.argv)
     args = sys.argv
-    tasks = list()
 
     try:
         if argc < 2:
