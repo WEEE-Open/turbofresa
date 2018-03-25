@@ -24,14 +24,15 @@ import os
 import sys
 import datetime
 import threading
+import subprocess
 
-LOG_PATH = '../log.txt'
+LOG_PATH = '/home/piall/.local/share/turbofresa/log.txt'
 # Verbosity levels
 ERROR, WARNING, INFO = range(0,3)
 VERBOSITY = INFO
 
 # Disk operations
-o_bblocks, o_fast, o_paranoia, o_check = range(0,4)
+o_bblocks, o_pialla, o_check = range(0,3)
 
 
 """
@@ -67,6 +68,11 @@ class Console(object):
                 print("info: "+msg)
             self.logFile.write(now()+"info: "+msg+'\n')
 
+    def proc(self, msg, toStdOut=True):
+        if toStdOut is True:
+            print("proc: "+msg)
+        self.logFile.write(now()+"proc: "+msg+'\n')
+
     def warn(self, msg, toStdOut=True):
         if self.printLevel >= WARNING:
             if toStdOut is True:
@@ -98,20 +104,30 @@ class Moron(BaseException):
 """
     Task : class for the runnable thread
 
-    @member disk  : the disk dev path (eg. /dev/sdb )
-    @member tasks : things to be done with the disk
+    @member disk   : the disk dev path (eg. /dev/sdb )
+    @member blocks : number of blocks of the hard drive
+    @member tasks  : things to be done with the disk
+    @member proc   : current running subprocess
 
     @method sanityCheck : check args before running the task
     @method run : run thread
 """
-class Task(object):
-    def __init__(self, path, ops):
-        self.disk = path
+class Task(threading.Thread):
+    def __init__(self, dev, ops):
+        self.disk = dev
+        self.nblocks = 0
         self.tasks = ops
+        self.proc = None
+
+    def blocks(self):
+        fdiskl = os.popen('sudo fdisk -l | grep "Disk /dev/sd"').read()
+        for line in fdiskl.split('\n'):
+            if self.disk in line:
+                self.nblocks = int( int(line.split()[4]) / 512 )
 
     def sanityCheck(self):
         try:
-            if os.path.exists(self.disk) is False:
+            if not os.path.exists(self.disk):
                 raise DriveNotFoundError
         except DriveNotFoundError:
             log.error("Hard drive "+self.disk+" not found.")
@@ -127,10 +143,19 @@ class Task(object):
             log.exit()
             sys.exit(1)
 
-    def run(self):
-        # TODO: To be implemented
-        pass
+    def thread(self):
+        if self.tasks[o_bblocks] is True:
+            log.proc("Started badblocks on %s (rw 0xFF)."%self.disk)
+            self.proc = subprocess.run(['sudo','badblocks','-svw','-t','0xff',self.disk])
+        if self.tasks[o_pialla] is True:
+            log.proc("Started filling %s with 0x00."%self.disk)
+            self.proc = subprocess.run(['sudo','dd','bs=4M','if=/dev/zero','of=%s'%self.disk,'conv=sync'])
+        if self.tasks[o_check] is True:
+            self.proc = log.proc("Started checking %s clean status."%self.disk)
+            pass
 
+    def run(self):
+        pass
 
 """
 	Parse command line args.
@@ -149,15 +174,13 @@ def parseArgs():
             pass
         else:
             for i in range(1, argc):
-                ops = [False, False, False, False]
+                ops = [False, False, False]
                 if args[i].startswith('-'):
                     for o in range(1,len(args[i])):
                         if 'b' in args[i]:
                             ops[o_bblocks] = True
-                        if 'f' in args[i]:
-                            ops[o_fast] = True
                         if 'p' in args[i]:
-                            ops[o_paranoia] = True
+                            ops[o_pialla] = True
                         if 'c' in args[i]:
                             ops[o_check] = True
                     i += 1
@@ -179,7 +202,12 @@ def main():
     tasks = parseArgs()
     for t in tasks:
         t.sanityCheck()
+        t.blocks()
+    for t in tasks:
+        # manage threads here
+        pass
 
 
 if __name__ == '__main__':
     main()
+    sys.exit(0)
