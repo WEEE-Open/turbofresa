@@ -11,7 +11,7 @@ Nella `piall@trice`, per evitare di loggarsi come `root` ma avviare lo stesso
 i subprocess che necessitano privilegi più alti senza dover mettere la password,  
 aggiungere la seguente riga al file `/etc/sudoers`:
 
-`piall ALL=(ALL) /usr/bin/turbofresa`
+`piall ALL=(ALL) NOPASSWD /usr/bin/turbofresa`
 
 ## TODO  
 - [ ] Gestire i valori di ritorno dei singoli subprocess.  
