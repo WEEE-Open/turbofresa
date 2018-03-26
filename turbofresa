@@ -158,6 +158,23 @@ class Task(threading.Thread):
             # TODO: To be implemented
             self.proc = log.proc("Ended checking %s clean status."%self.disk)
 
+# Prints an help message
+def helpMessage():
+    help = "T.U.R.B.O.F.R.E.S.A.\n" + \
+    "Turboaggeggio Utile alla Rimorzione di Byte Obrobriosi e di abominevoli\n" + \
+    "File da dischi rigidi Riciclati ed altri Elettronici Sistemi di\n" + \
+    "Accumulazione (semi)permanente di dati.\n" + \
+    "Copyright (C) 2018  Hyd3L\n" + \
+    "This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.\n" + \
+    "This is free software, and you are welcome to redistribute it\n" + \
+    "under certain conditions; type `show c' for details.\n\n" + \
+    "usage: turbofresa -[options] [disks] -[options] [disks] ...\n\n" + \
+    "commands:\n" + \
+    "  -b : exec badblocks on hard drive(s) [rw test 0xff]\n" + \
+    "  -p : exec zero-fill on hard drive(s)\n" + \
+    "  -c : check hard drive clean status\n"
+    print(help)
+
 
 """
 	Parse command line args.
@@ -171,9 +188,20 @@ def parseArgs():
     try:
         if argc < 2:
             raise SyntaxError
+        elif not args[1].startswith('-'):
+            raise SyntaxError
         elif args[1] == '-h' or args[1] == '--help':
-            # TODO: To be implemented
-            pass
+            helpMessage()
+            log.exit()
+            sys.exit(0)
+        elif args == ['turbofresa', 'show', 'c'] or args == ['turbofresa', 'show', 'w']:
+            answ = input("Can you read? [Y/n]")
+            if(answ == 'Y'):
+                print("Ok! Go to https://www.gnu.org/licenses/ and read the license.")
+            else:
+                print("Learn!")
+            log.exit()
+            sys.exit(0)
         else:
             for i in range(1, argc):
                 ops = [False, False, False]
