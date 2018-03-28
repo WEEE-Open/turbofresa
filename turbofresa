@@ -188,12 +188,12 @@ def parseArgs():
     try:
         if argc < 2:
             raise SyntaxError
-        elif args == ['turbofresa', 'show', 'c'] or args == ['turbofresa', 'show', 'w']:
+        elif args[1:3] == ['show', 'c'] or args[1:3] == ['show', 'w']:
             answ = input("Can you read? [Y/n]")
-            if(answ == 'Y' or answ == 'y'):
-                print("Ok! Go to https://www.gnu.org/licenses/ and read the license.")
+            if(answ == 'Y' or answ == 'y' or answ == ''):
+                print("Ok! Go to http://www.gnu.org/licenses/gpl.html and read the license.")
             else:
-                print("Learn!")
+                print("Learn, then go to http://www.gnu.org/licenses/gpl.html and read the license.")
             log.exit()
             sys.exit(0)
         elif not args[1].startswith('-'):
