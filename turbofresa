@@ -35,7 +35,7 @@ ERROR, WARNING, INFO = range(0,3)
 VERBOSITY = INFO
 
 # Disk operations
-o_bblocks, o_pialla, o_check = range(0,3)
+o_pialla, o_bblocks, o_check = range(0,3)
 
 # Function that returns a formatted string with current time
 def now():
@@ -109,6 +109,7 @@ class Moron(BaseException):
     @member tasks  : things to be done with the disk
     @member proc   : current running subprocess
 
+    @method blocks : determine the size of the hard drive in blocks of 512 bytes
     @method sanityCheck : check args before running the task
     @method run : run thread
 """
@@ -145,14 +146,19 @@ class Task(threading.Thread):
             sys.exit(1)
 
     def run(self):
-        if self.tasks[o_bblocks] is True:
-            log.proc("Started badblocks on %s (rw 0xFF)."%self.disk)
-            self.proc = subprocess.run(['sudo','badblocks','-svw','-t','0xff',self.disk])
-            log.proc("Ended badblocks on %s (rw 0xFF)."%self.disk)
         if self.tasks[o_pialla] is True:
-            log.proc("Started filling %s with 0x00."%self.disk)
-            self.proc = subprocess.run(['sudo','dd','bs=4M','if=/dev/zero','of=%s'%self.disk,'count=%d'%self.nblocks,'conv=sync'])
-            log.proc("Ended filling %s with 0x00."%self.disk)
+            if self.tasks[o_bblocks] is True:
+                log.proc("Started filling %s [bytes: random]."%self.disk)
+                self.proc = subprocess.run(['sudo','dd','bs=4M','if=/dev/urandom','of=%s'%self.disk,'count=%d'%self.nblocks,'conv=sync'])
+                log.proc("Ended filling %s [bytes: random]"%self.disk)
+            else:
+                log.proc("Started filling %s [bytes: 0x00]."%self.disk)
+                self.proc = subprocess.run(['sudo','dd','bs=4M','if=/dev/zero','of=%s'%self.disk,'count=%d'%self.nblocks,'conv=sync'])
+                log.proc("Ended filling %s [bytes: 0x00]."%self.disk)
+        if self.tasks[o_bblocks] is True:
+            log.proc("Started blocks read-write test on %s [bytes: 0x00]."%self.disk)
+            self.proc = subprocess.run(['sudo','badblocks','-w','-t','0x00',self.disk])
+            log.proc("Ended blocks read-write test on %s [bytes: 0x00]."%self.disk)
         if self.tasks[o_check] is True:
             self.proc = log.proc("Started checking %s clean status."%self.disk)
             # TODO: To be implemented
@@ -189,7 +195,7 @@ def parseArgs():
         if argc < 2:
             raise SyntaxError
         elif args[1:3] == ['show', 'c'] or args[1:3] == ['show', 'w']:
-            answ = input("Can you read? [Y/n]")
+            answ = input("Can you read? [Y/n] ")
             if(answ == 'Y' or answ == 'y' or answ == ''):
                 print("Ok! Go to http://www.gnu.org/licenses/gpl.html and read the license.")
             else:
@@ -207,10 +213,10 @@ def parseArgs():
                 ops = [False, False, False]
                 if args[i].startswith('-'):
                     for o in range(1,len(args[i])):
-                        if 'b' in args[i]:
-                            ops[o_bblocks] = True
                         if 'p' in args[i]:
                             ops[o_pialla] = True
+                        if 'b' in args[i]:
+                            ops[o_bblocks] = True
                         if 'c' in args[i]:
                             ops[o_check] = True
                     i += 1
