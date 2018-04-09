@@ -22,12 +22,13 @@
 
 import os
 import sys
+import getpass
 import datetime
 import threading
 import subprocess
 
 # Path of the log file
-LOG_PATH = '/home/piall/.local/share/turbofresa/log.txt'
+LOG_PATH = '/home/'+getpass.getuser()+'/.local/share/turbofresa/log.txt'
 # LOG_PATH = '../log.txt'
 
 # Verbosity levels
