@@ -13,16 +13,8 @@ mv turbofresa /usr/bin
 cd ..
 rm -fr turbofresa
 
-if [ ! -d /home/$USER/.local ]; then
-    mkdir /home/$USER/.local
-fi
-
-if [ ! -d /home/$USER/.local/share ]; then
-    mkdir /home/$USER/.local/share
-fi
-
 if [ ! -d /home/$USER/.local/share/turbofresa ]; then
-   mkdir /home/$USER/.local/share/turbofresa
+   mkdir -p /home/$USER/.local/share/turbofresa
 fi
 
 echo "Done!"
