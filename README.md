@@ -17,6 +17,6 @@ aggiungere la seguente riga al file `/etc/sudoers`:
 - [ ] Rendere i subprocess più sensati (attualmente non lo sono abbastanza).  
 - [ ] Gestire i valori di ritorno dei singoli subprocess.  
 - [ ] Implementare un algoritmo di lettura statistica del disco che determini con buona probabilità e rapidità se il disco é piallato o no.  
-- [ ] Fare in modo che lo script legga da `smartctl` il seriale del disco rigido e che interroghi il db del `tarallo` per ottenere il codice di inventario del disco rigido.  
+- [ ] Fare in modo che lo script legga da `lshw -c disk -json` il seriale del disco rigido e che interroghi il db del `tarallo` per ottenere il codice di inventario del disco rigido.  
 - [ ] Fare in modo che lo script comunichi con il `tarallo` in modo tale da aggiornare l'inventario automaticamente non appena il disco è piallato.  
 - [ ] Creare un'amena web-app che controlli lo script tramite `ssh` e che sia in grado di accendere la piall@trice (WOL) e fornire informazioni sullo stato della suddetta macchina e sullo stato dei task in esecuzione.  

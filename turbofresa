@@ -123,6 +123,7 @@ class Task(threading.Thread):
         self.proc = None
 
     def blocks(self):
+        # TODO: Recheck blocks calculating function
         fdiskl = os.popen('sudo fdisk -l | grep "Disk /dev/sd"').read()
         for line in fdiskl.split('\n'):
             if self.disk in line:
