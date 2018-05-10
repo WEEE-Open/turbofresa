@@ -144,8 +144,10 @@ class Task(threading.Thread):
 
 def main():
 	parser = argparse.ArgumentParser(description='Automatically drill every single connected hard drive.')
-	parser.add_argument('-s', '--shutdown', help="Shutdown the machine when everything is done.")
+	parser.add_argument('-s', '--shutdown', action='store_true', help="Shutdown the machine when everything is done.")
+	parser.add_argument('-p', '--pretend', action='store_true', help="Pretend to be doing stuff.")
 	parser.set_defaults(shutdown=False)
+	parser.set_defaults(pretend=False)
 	args = parser.parse_args()
 
 	print("===> Detecting connected hard drives.")
@@ -157,14 +159,23 @@ def main():
 
 	print("===> Cleaning disks")
 	for t in tasks:
-		t.start()
+		if args.pretend is False:
+			t.start()
+		else:
+			print("Started cleaning")
 
 	for t in tasks:
-		t.join()
+		if args.pretend is False:
+			t.join()
+		else:
+			print("Ended cleaning")
 
-	if args.shutdown is True:
-		log.info("System halted by the user.")
-		subprocess.run(['shutdown', '+1'])
+	if args.shutdown is True
+		if args.pretend is False:
+			log.info("System halted by the user.")
+			subprocess.run(['shutdown', '+1'])
+		else:
+			print("System halted.")
 	print("Done.")
 
 
