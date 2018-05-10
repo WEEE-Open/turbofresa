@@ -28,66 +28,69 @@ import threading
 import subprocess
 
 # Path of the log file
-LOG_PATH = '/home/'+getpass.getuser()+'/.local/share/turbofresa/log.txt'
-# LOG_PATH = '../log.txt'
+LOG_PATH = '/home/' + getpass.getuser() + '/.local/share/turbofresa/log.txt'
 
 # Verbosity levels
-ERROR, WARNING, INFO = range(0,3)
+ERROR, WARNING, INFO = range(0, 3)
 VERBOSITY = INFO
 
 # Disk operations
-o_pialla, o_bblocks, o_check = range(0,3)
+o_pialla, o_bblocks, o_check = range(0, 3)
+
 
 # Function that returns a formatted string with current time
 def now():
-    return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S] ')
+	return datetime.datetime.now().strftime('[%Y-%m-%d %H:%M:%S] ')
 
 
 """
-    Console : class for printing errors, warnings and info messages
-              to the stdout and into the log file.
+	Console : class for printing errors, warnings and info messages
+				to the stdout and into the log file.
 
-    @member printLevel : verbosity level (ERROR, WARNING or INFO)
-    @member logFile    : the log file pointer
+	@member printLevel : verbosity level (ERROR, WARNING or INFO)
+	@member logFile    : the log file pointer
 
-    @method info : prints info msg to stdout and to the logFile
-    @method warn : prints warning to stdout and to the logFile
-    @method err  : prints error to stdout and to the logFile
+	@method info : prints info msg to stdout and to the logFile
+	@method warn : prints warning to stdout and to the logFile
+	@method err  : prints error to stdout and to the logFile
 """
+
+
 class Console(object):
-    def __init__(self):
-        self.printLevel = VERBOSITY
-        try:
-            self.logFile = open(LOG_PATH, "a")
-        except IOError:
-            print("error: Permission denied. Log file couldn't be created.")
-            sys.exit(1)
+	def __init__(self):
+		self.printLevel = VERBOSITY
+		try:
+			self.logFile = open(LOG_PATH, "a")
+		except IOError:
+			print("error: Permission denied. Log file couldn't be created.")
+			sys.exit(1)
 
-    def info(self, msg, toStdOut=True):
-        if self.printLevel >= INFO:
-            if toStdOut is True:
-                print("info: "+msg)
-            self.logFile.write(now()+"info: "+msg+'\n')
+	def info(self, msg, to_std_out=True):
+		if self.printLevel >= INFO:
+			if to_std_out is True:
+				print("info: " + msg)
+			self.logFile.write(now() + "info: " + msg + '\n')
 
-    def proc(self, msg, toStdOut=True):
-        if toStdOut is True:
-            print("proc: "+msg)
-        self.logFile.write(now()+"proc: "+msg+'\n')
+	def proc(self, msg, to_std_out=True):
+		if to_std_out is True:
+			print("proc: " + msg)
+		self.logFile.write(now() + "proc: " + msg + '\n')
 
-    def warn(self, msg, toStdOut=True):
-        if self.printLevel >= WARNING:
-            if toStdOut is True:
-                print("warning: "+msg)
-            self.logFile.write(now()+"warning: "+msg+'\n')
+	def warn(self, msg, to_std_out=True):
+		if self.printLevel >= WARNING:
+			if to_std_out is True:
+				print("warning: " + msg)
+			self.logFile.write(now() + "warning: " + msg + '\n')
 
-    def error(self, msg, toStdOut=True):
-        if self.printLevel >= ERROR:
-            if toStdOut is True:
-                print("error: "+msg)
-            self.logFile.write(now()+"error: "+msg+'\n')
+	def error(self, msg, to_std_out=True):
+		if self.printLevel >= ERROR:
+			if to_std_out is True:
+				print("error: " + msg)
+			self.logFile.write(now() + "error: " + msg + '\n')
 
-    def exit(self):
-        self.logFile.close()
+	def exit(self):
+		self.logFile.close()
+
 
 # Initialize log
 log = Console()
@@ -95,161 +98,170 @@ log = Console()
 
 # DriveNotFoundError : Exception to handle /dev/sdX not found
 class DriveNotFoundError(BaseException):
-    pass
+	pass
+
 
 # Moron : Exception to be raised in case of morons using this script
 class Moron(BaseException):
-    pass
+	pass
 
 
 """
-    Task : class for the runnable thread
+	Task : class for the runnable thread
 
-    @member disk   : the disk dev path (eg. /dev/sdb )
-    @member nblocks : number of blocks of the hard drive
-    @member tasks  : things to be done with the disk
-    @member proc   : current running subprocess
+	@member disk   : the disk dev path (eg. /dev/sdb )
+	@member nblocks : number of blocks of the hard drive
+	@member tasks  : things to be done with the disk
+	@member proc   : current running subprocess
 
-    @method blocks : determine the size of the hard drive in blocks of 512 bytes
-    @method sanityCheck : check args before running the task
-    @method run : run thread
+	@method blocks : determine the size of the hard drive in blocks of 512 bytes
+	@method sanityCheck : check args before running the task
+	@method run : run thread
 """
+
+
 class Task(threading.Thread):
-    def __init__(self, dev, ops):
-        threading.Thread.__init__(self)
-        self.disk = dev
-        self.nblocks = 0
-        self.tasks = ops
-        self.proc = None
+	def __init__(self, dev, ops):
+		threading.Thread.__init__(self)
+		self.disk = dev
+		self.nblocks = 0
+		self.tasks = ops
+		self.proc = None
 
-    def blocks(self):
-        # TODO: Recheck blocks calculating function
-        fdiskl = os.popen('sudo fdisk -l | grep "Disk /dev/sd"').read()
-        for line in fdiskl.split('\n'):
-            if self.disk in line:
-                self.nblocks = int( int(line.split()[4]) / 512 )
+	def blocks(self):
+		fdiskl = os.popen('sudo fdisk -l | grep "Disk /dev/sd"').read()
+		for line in fdiskl.split('\n'):
+			if self.disk in line:
+				self.nblocks = int(int(line.split()[4]) / 512)
 
-    def sanityCheck(self):
-        try:
-            if not os.path.exists(self.disk):
-                raise DriveNotFoundError
-        except DriveNotFoundError:
-            log.error("Hard drive "+self.disk+" not found.")
-            log.exit()
-            sys.exit(1)
-        try:
-            if '/dev/sda' in self.disk:
-                raise Moron
-        except Moron:
-            moron_name = input("Type your name and press ENTER: ")
-            log.error("%s is trying to fuck up everything."%(moron_name), False)
-            print("Thank you %s! Now go and clean the Groot please."%(moron_name))
-            log.exit()
-            sys.exit(1)
+	def sanity_check(self):
+		try:
+			if not os.path.exists(self.disk):
+				raise DriveNotFoundError
+		except DriveNotFoundError:
+			log.error("Hard drive " + self.disk + " not found.")
+			log.exit()
+			sys.exit(1)
+		try:
+			if '/dev/sda' in self.disk:
+				raise Moron
+		except Moron:
+			moron_name = input("Type your name and press ENTER: ")
+			log.error("%s is trying to fuck up everything." % (moron_name), False)
+			print("Thank you %s! Now go and clean the Groot please." % (moron_name))
+			log.exit()
+			sys.exit(1)
 
-    def run(self):
-        if self.tasks[o_pialla] is True:
-            if self.tasks[o_bblocks] is True:
-                log.proc("Started filling %s [bytes: random]."%self.disk)
-                self.proc = subprocess.run(['sudo','dd','bs=4M','if=/dev/urandom','of=%s'%self.disk,'count=%d'%self.nblocks,'conv=sync'])
-                log.proc("Ended filling %s [bytes: random]"%self.disk)
-            else:
-                log.proc("Started filling %s [bytes: 0x00]."%self.disk)
-                self.proc = subprocess.run(['sudo','dd','bs=4M','if=/dev/zero','of=%s'%self.disk,'count=%d'%self.nblocks,'conv=sync'])
-                log.proc("Ended filling %s [bytes: 0x00]."%self.disk)
-        if self.tasks[o_bblocks] is True:
-            log.proc("Started blocks read-write test on %s [bytes: 0x00]."%self.disk)
-            self.proc = subprocess.run(['sudo','badblocks','-w','-t','0x00',self.disk])
-            log.proc("Ended blocks read-write test on %s [bytes: 0x00]."%self.disk)
-        if self.tasks[o_check] is True:
-            self.proc = log.proc("Started checking %s clean status."%self.disk)
-            # TODO: To be implemented
-            self.proc = log.proc("Ended checking %s clean status."%self.disk)
+	def run(self):
+		if self.tasks[o_pialla] is True:
+			if self.tasks[o_bblocks] is True:
+				log.proc("Started filling %s [bytes: random]." % self.disk)
+				self.proc = subprocess.run(
+					['sudo', 'dd', 'bs=4M', 'if=/dev/urandom', 'of=%s' % self.disk, 'count=%d' % self.nblocks,
+						'conv=sync'])
+				log.proc("Ended filling %s [bytes: random]" % self.disk)
+			else:
+				log.proc("Started filling %s [bytes: 0x00]." % self.disk)
+				self.proc = subprocess.run(
+					['sudo', 'dd', 'bs=4M', 'if=/dev/zero', 'of=%s' % self.disk, 'count=%d' % self.nblocks,
+						'conv=sync'])
+				log.proc("Ended filling %s [bytes: 0x00]." % self.disk)
+		if self.tasks[o_bblocks] is True:
+			log.proc("Started blocks read-write test on %s [bytes: 0x00]." % self.disk)
+			self.proc = subprocess.run(['sudo', 'badblocks', '-w', '-t', '0x00', self.disk])
+			log.proc("Ended blocks read-write test on %s [bytes: 0x00]." % self.disk)
+		if self.tasks[o_check] is True:
+			self.proc = log.proc("Started checking %s clean status." % self.disk)
+			# TODO: To be implemented
+			self.proc = log.proc("Ended checking %s clean status." % self.disk)
+
 
 # Prints an help message
-def helpMessage():
-    help = "T.U.R.B.O.F.R.E.S.A.\n" + \
-    "Turboaggeggio Utile alla Rimorzione di Byte Obrobriosi e di abominevoli\n" + \
-    "File da dischi rigidi Riciclati ed altri Elettronici Sistemi di\n" + \
-    "Accumulazione (semi)permanente di dati.\n" + \
-    "Copyright (C) 2018  Hyd3L\n" + \
-    "This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.\n" + \
-    "This is free software, and you are welcome to redistribute it\n" + \
-    "under certain conditions; type `show c' for details.\n\n" + \
-    "usage: turbofresa -[options] [disks] -[options] [disks] ...\n\n" + \
-    "commands:\n" + \
-    "  -b : exec badblocks on hard drive(s) [rw test 0xff]\n" + \
-    "  -p : exec zero-fill on hard drive(s)\n" + \
-    "  -c : check hard drive clean status\n"
-    print(help)
+def help_message():
+	help = "T.U.R.B.O.F.R.E.S.A.\n" + \
+			"Turboaggeggio Utile alla Rimorzione di Byte Obrobriosi e di abominevoli\n" + \
+			"File da dischi rigidi Riciclati ed altri Elettronici Sistemi di\n" + \
+			"Accumulazione (semi)permanente di dati.\n" + \
+			"Copyright (C) 2018  Hyd3L\n" + \
+			"This program comes with ABSOLUTELY NO WARRANTY; for details type `show w'.\n" + \
+			"This is free software, and you are welcome to redistribute it\n" + \
+			"under certain conditions; type `show c' for details.\n\n" + \
+			"usage: turbofresa -[options] [disks] -[options] [disks] ...\n\n" + \
+			"commands:\n" + \
+			"  -b : exec badblocks on hard drive(s) [rw test 0xff]\n" + \
+			"  -p : exec zero-fill on hard drive(s)\n" + \
+			"  -c : check hard drive clean status\n"
+	print(help)
 
 
 """
 	Parse command line args.
 	@return list of Task() objects, ready to be run
 """
-def parseArgs():
-    tasks = list()
-    argc = len(sys.argv)
-    args = sys.argv
 
-    try:
-        if argc < 2:
-            raise SyntaxError
-        elif args[1:3] == ['show', 'c'] or args[1:3] == ['show', 'w']:
-            answ = input("Can you read? [Y/n] ")
-            if(answ == 'Y' or answ == 'y' or answ == ''):
-                print("Ok! Go to http://www.gnu.org/licenses/gpl.html and read the license.")
-            else:
-                print("Learn, then go to http://www.gnu.org/licenses/gpl.html and read the license.")
-            log.exit()
-            sys.exit(0)
-        elif not args[1].startswith('-'):
-            raise SyntaxError
-        elif args[1] == '-h' or args[1] == '--help':
-            helpMessage()
-            log.exit()
-            sys.exit(0)
-        else:
-            for i in range(1, argc):
-                ops = [False, False, False]
-                if args[i].startswith('-'):
-                    for o in range(1,len(args[i])):
-                        if 'p' in args[i]:
-                            ops[o_pialla] = True
-                        if 'b' in args[i]:
-                            ops[o_bblocks] = True
-                        if 'c' in args[i]:
-                            ops[o_check] = True
-                    i += 1
-                    while args[i].startswith('/'):
-                        tasks.append(Task(args[i], ops))
-                        if i + 1 == argc: break
-                        i += 1
-                    if not args[i].startswith('/'):
-                        if not args[i].startswith('-'):
-                            raise SyntaxError
-    except SyntaxError:
-        log.error("Invalid syntax detected.")
-        log.exit()
-        sys.exit(1)
-    return tasks
+
+def parseArgs():
+	tasks = list()
+	argc = len(sys.argv)
+	args = sys.argv
+
+	try:
+		if argc < 2:
+			raise SyntaxError
+		elif args[1:3] == ['show', 'c'] or args[1:3] == ['show', 'w']:
+			answ = input("Can you read? [Y/n] ")
+			if answ == 'Y' or answ == 'y' or answ == '':
+				print("Ok! Go to http://www.gnu.org/licenses/gpl.html and read the license.")
+			else:
+				print("Learn, then go to http://www.gnu.org/licenses/gpl.html and read the license.")
+			log.exit()
+			sys.exit(0)
+		elif not args[1].startswith('-'):
+			raise SyntaxError
+		elif args[1] == '-h' or args[1] == '--help':
+			help_message()
+			log.exit()
+			sys.exit(0)
+		else:
+			for i in range(1, argc):
+				ops = [False, False, False]
+				if args[i].startswith('-'):
+					for o in range(1, len(args[i])):
+						if 'p' in args[i]:
+							ops[o_pialla] = True
+						if 'b' in args[i]:
+							ops[o_bblocks] = True
+						if 'c' in args[i]:
+							ops[o_check] = True
+					i += 1
+					while args[i].startswith('/'):
+						tasks.append(Task(args[i], ops))
+						if i + 1 == argc: break
+						i += 1
+					if not args[i].startswith('/'):
+						if not args[i].startswith('-'):
+							raise SyntaxError
+	except SyntaxError:
+		log.error("Invalid syntax detected.")
+		log.exit()
+		sys.exit(1)
+	return tasks
 
 
 def main():
-    tasks = parseArgs()
-    for t in tasks:
-        t.sanityCheck()
-        t.blocks()
-    # Starting threads
-    for t in tasks:
-        t.start()
-    # Syncing threads
-    for t in tasks:
-        t.join()
-    log.exit()
+	tasks = parseArgs()
+	for t in tasks:
+		t.sanity_check()
+		t.blocks()
+	# Starting threads
+	for t in tasks:
+		t.start()
+	# Syncing threads
+	for t in tasks:
+		t.join()
+	log.exit()
 
 
 if __name__ == '__main__':
-    main()
-    sys.exit(0)
+	main()
+	sys.exit(0)
