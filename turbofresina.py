@@ -170,7 +170,7 @@ def main():
 		else:
 			print("Ended cleaning")
 
-	if args.shutdown is True
+	if args.shutdown is True:
 		if args.pretend is False:
 			log.info("System halted by the user.")
 			subprocess.run(['shutdown', '+1'])
