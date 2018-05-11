@@ -28,7 +28,7 @@ import subprocess
 import argparse  # @quel_tale will you finally stop smashing my nuts?
 from getpass import getuser
 
-__version__ = '1.1-RC2'
+__version__ = '1.1-RC3'
 
 # Path of the log file
 LOG_PATH = '/home/' + getuser() + '/.local/share/turbofresa/log.txt'
@@ -103,7 +103,7 @@ def ask_confirm():
 	"""
 	a = input("Are you 100% sure of what you're about to do? [N/y] ")
 	if not (a == 'Y' or a == 'y'):
-		log.info("User is a fa(ggot)int-hearted")
+		log.info("User is a fa(ggot)int-hearted.")
 		secure_exit()
 
 
@@ -161,7 +161,7 @@ class Task(threading.Thread):
 		result = os.popen('cat %s' % self.drive_name).read()
 		if result == "":
 			log.task("%s successfully cleaned.")
-			subprocess.run(['rm', self.drive_name])
+			subprocess.run(['rm', '-f', self.drive_name])
 		else:
 			log.task("%s is broken. Please, check the badblocks list.")
 
