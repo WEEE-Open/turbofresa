@@ -107,10 +107,10 @@ def detect_disks() -> list:
 	"""
 	os_disk = detect_os()
 	disks = list()
-	lsblk = os.popen('lsblk | grep sd').read()
+	lsblk = os.popen('lsblk | grep sd').read().split('\n')
 	for line in lsblk:
 		if line.startswith('s'):
-			path = '/dev/'+line[0]
+			path = '/dev/'+line[:3]
 			if path == os_disk:
 				print("Skipping mounted drive: " + path)
 				continue
@@ -173,7 +173,7 @@ def main():
 	if args.shutdown is True:
 		if args.pretend is False:
 			log.info("System halted by the user.")
-			subprocess.run(['shutdown', '+1'])
+			subprocess.run(['shutdown'])
 		else:
 			print("System halted.")
 	print("Done.")
