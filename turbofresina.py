@@ -28,7 +28,7 @@ import subprocess
 import argparse  # @quel_tale will you finally stop smashing my nuts?
 from getpass import getuser
 
-__version__ = '1.1-RC3'
+__version__ = '1.1-RC4'
 
 # Path of the log file
 LOG_PATH = '/home/' + getuser() + '/.local/share/turbofresa/log.txt'
@@ -160,10 +160,10 @@ class Task(threading.Thread):
 		subprocess.run(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', self.drive_name, self.disk_path])
 		result = os.popen('cat %s' % self.drive_name).read()
 		if result == "":
-			log.task("%s successfully cleaned.")
+			log.task("%s successfully cleaned." % self.drive_name)
 			subprocess.run(['rm', '-f', self.drive_name])
 		else:
-			log.task("%s is broken. Please, check the badblocks list.")
+			log.task("%s is broken. Please, check the badblocks list." % self.drive_name)
 
 
 def main():
