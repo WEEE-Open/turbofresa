@@ -221,9 +221,9 @@ def main():
 	ask_confirm()
 
 	program = Program(args)
-	if args.daemon is True:
-		program.daemon = True
 	program.start()
+	if args.daemon is False:
+		program.join()
 
 
 if __name__ == '__main__':
