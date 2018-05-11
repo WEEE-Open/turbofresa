@@ -28,7 +28,7 @@ import subprocess
 import argparse  # @quel_tale will you finally stop smashing my nuts?
 from getpass import getuser
 
-__version__ = '1.1'
+__version__ = '1.2-RC1'
 
 # Path of the log file
 LOG_PATH = '/home/' + getuser() + '/.local/share/turbofresa/log.txt'
@@ -169,45 +169,63 @@ class Task(threading.Thread):
 			log.task("%s is broken. Please, check the badblocks list." % self.drive_name)
 
 
+class Program(threading.Thread):
+	"""
+		Program class, used to daemonize the execution.
+	"""
+	def __init__(self, args):
+		threading.Thread.__init__(self)
+		self.args = args
+
+	def run(self):
+		print("===> Detecting connected hard drives.")
+		hdds = detect_disks(self.args.pretend)
+		tasks = list()
+
+		for d in hdds:
+			tasks.append(Task(d))
+
+		print("===> Cleaning disks")
+		for t in tasks:
+			if self.args.pretend is False:
+				t.start()
+			else:
+				print("Started cleaning")
+
+		for t in tasks:
+			if self.args.pretend is False:
+				t.join()
+			else:
+				print("Ended cleaning")
+
+		if self.args.shutdown is True:
+			if self.args.pretend is False:
+				log.info("System halted by the user.")
+				subprocess.run(['sudo', 'shutdown'])
+			else:
+				print("System halted by the user.")
+		print("Done.")
+
+
 def main():
 	parser = argparse.ArgumentParser(description='Automatically drill every single connected hard drive.')
 	parser.add_argument('-s', '--shutdown', action='store_true', help='Shutdown the machine when everything is done.')
+	parser.add_argument('-d', '--daemon', action='store_true', help='Run the program as daemon.')
 	parser.add_argument('-p', '--pretend', action='store_true', help='Pretend to be doing stuff.')
 	parser.add_argument('--version', '-V', action='version', version='%(prog)s v.' + __version__)
 	parser.set_defaults(shutdown=False)
+	parser.set_defaults(daemon=False)
 	parser.set_defaults(pretend=False)
 	args = parser.parse_args()
 
 	ask_confirm()
-	print("===> Detecting connected hard drives.")
-	hdds = detect_disks(args.pretend)
-	tasks = list()
 
-	for d in hdds:
-		tasks.append(Task(d))
-
-	print("===> Cleaning disks")
-	for t in tasks:
-		if args.pretend is False:
-			t.start()
-		else:
-			print("Started cleaning")
-
-	for t in tasks:
-		if args.pretend is False:
-			t.join()
-		else:
-			print("Ended cleaning")
-
-	if args.shutdown is True:
-		if args.pretend is False:
-			log.info("System halted by the user.")
-			subprocess.run(['sudo', 'shutdown'])
-		else:
-			print("System halted by the user.")
-	print("Done.")
+	program = Program(args)
+	if args.daemon is True:
+		program.daemon = True
+	program.start()
 
 
 if __name__ == '__main__':
 	main()
-	secure_exit()
+
