@@ -116,7 +116,7 @@ def detect_os() -> str:
 	return os_disk
 
 
-def detect_disks() -> list:
+def detect_disks(dry_run) -> list:
 	"""
 		Detects the hard drives connected to the machine
 		:return: a list containing '/dev/sdX' entries
@@ -128,7 +128,10 @@ def detect_disks() -> list:
 		if line.startswith('s'):
 			path = '/dev/'+line[:3]
 			if path == os_disk:
-				log.info("Skipping mounted drive: %s." % path, to_std_out=True)
+				if dry_run is False:
+					log.info("Skipping mounted drive: %s." % path, to_std_out=True)
+				else:
+					print("Skipping mounted drive: %s." % path, to_std_out=True)
 				continue
 			disks.append(path)
 	return disks
@@ -177,7 +180,7 @@ def main():
 
 	ask_confirm()
 	print("===> Detecting connected hard drives.")
-	hdds = detect_disks()
+	hdds = detect_disks(args.pretend)
 	tasks = list()
 
 	for d in hdds:
