@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
     T.U.R.B.O.F.R.E.S.I.N.A
-    Turboaggeggio Utile alla Rimorzione di Byte Obrobriosi e di abominevoli
+    Turboaggeggino Utile alla Rimorzione di Byte Obrobriosi e di abominevoli
     File da dischi rigidi Riciclati ed altri Elettronici Sistemi di
     Immagazzinamento (semi)permanente di dati Necessariamente Automatizzato.
     Copyright (C) 2018  Hyd3L
@@ -27,6 +27,8 @@ import threading
 import subprocess
 import argparse  # @quel_tale will you finally stop smashing my nuts?
 from getpass import getuser
+
+__version__ = '1.1-RC2'
 
 # Path of the log file
 LOG_PATH = '/home/' + getuser() + '/.local/share/turbofresa/log.txt'
@@ -55,24 +57,24 @@ class Console(object):
 			print("error: Permission denied. Log file couldn't be created.")
 			sys.exit(34)
 
-	def info(self, msg, to_std_out=True):
+	def info(self, msg, to_std_out=False):
 		if self.printLevel >= INFO:
 			if to_std_out is True:
 				print("info: " + msg)
 			self.logFile.write(now() + "info: " + msg + '\n')
 
-	def task(self, msg, to_std_out=True):
+	def task(self, msg, to_std_out=False):
 		if to_std_out is True:
 			print("task: " + msg)
 		self.logFile.write(now() + "task: " + msg + '\n')
 
-	def warn(self, msg, to_std_out=True):
+	def warn(self, msg, to_std_out=False):
 		if self.printLevel >= WARNING:
 			if to_std_out is True:
 				print("warning: " + msg)
 			self.logFile.write(now() + "warning: " + msg + '\n')
 
-	def error(self, msg, to_std_out=True):
+	def error(self, msg, to_std_out=False):
 		if self.printLevel >= ERROR:
 			if to_std_out is True:
 				print("error: " + msg)
@@ -87,8 +89,22 @@ log = Console()
 
 
 def secure_exit(status=0):
+	"""
+		Safely quit the program, by closing the log file before quit.
+		:param status: the exit code. (default = 0)
+	"""
 	log.exit()
 	sys.exit(status)
+
+
+def ask_confirm():
+	"""
+		Asks the user if (s)he is sure of what (s)he's doing.
+	"""
+	a = input("Are you 100% sure of what you're about to do? [N/y] ")
+	if not (a == 'Y' or a == 'y'):
+		log.info("User is a fa(ggot)int-hearted")
+		secure_exit()
 
 
 def detect_os() -> str:
@@ -112,7 +128,7 @@ def detect_disks() -> list:
 		if line.startswith('s'):
 			path = '/dev/'+line[:3]
 			if path == os_disk:
-				print("Skipping mounted drive: " + path)
+				log.info("Skipping mounted drive: " + path, to_std_out=True)
 				continue
 			disks.append(path)
 	return disks
@@ -132,6 +148,14 @@ class Task(threading.Thread):
 		self.drive_name = hdd.split('/')[2]
 
 	def run(self):
+		"""
+			This is the crucial part of the program.
+			Here badblocks writes a stream of 0x00 bytes on the hard drive.
+			After the writing process, it reads every blocks to ensure that they are actually 0x00 bytes.
+			Bad blocks are eventually written in a txt file named as sdX.
+			If this file is empty, then the disk is good to go, otherwise it'll be kept
+			and the broken hard drive is reported into the log file.
+		"""
 		log.task("Started cleaning %s" % self.drive_name)
 		subprocess.run(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', self.drive_name, self.disk_path])
 		result = os.popen('cat %s' % self.drive_name).read()
@@ -139,17 +163,19 @@ class Task(threading.Thread):
 			log.task("%s successfully cleaned.")
 			subprocess.run(['rm', self.drive_name])
 		else:
-			log.task("%s is broken.")
+			log.task("%s is broken. Please, check the badblocks list.")
 
 
 def main():
 	parser = argparse.ArgumentParser(description='Automatically drill every single connected hard drive.')
-	parser.add_argument('-s', '--shutdown', action='store_true', help="Shutdown the machine when everything is done.")
-	parser.add_argument('-p', '--pretend', action='store_true', help="Pretend to be doing stuff.")
+	parser.add_argument('-s', '--shutdown', action='store_true', help='Shutdown the machine when everything is done.')
+	parser.add_argument('-p', '--pretend', action='store_true', help='Pretend to be doing stuff.')
+	parser.add_argument('--version', '-V', action='version', version='%(prog)s v.' + __version__)
 	parser.set_defaults(shutdown=False)
 	parser.set_defaults(pretend=False)
 	args = parser.parse_args()
 
+	ask_confirm()
 	print("===> Detecting connected hard drives.")
 	hdds = detect_disks()
 	tasks = list()
