@@ -129,9 +129,9 @@ def detect_disks(dry_run) -> list:
 			path = '/dev/'+line[:3]
 			if path == os_disk:
 				if dry_run is False:
-					log.info("Skipping mounted drive: %s." % path, to_std_out=True)
+					log.info("Skipping mounted drive: %s." % path, True)
 				else:
-					print("Skipping mounted drive: %s." % path, to_std_out=True)
+					print("Skipping mounted drive: %s." % path)
 				continue
 			disks.append(path)
 	return disks
