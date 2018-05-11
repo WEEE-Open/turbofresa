@@ -11,8 +11,8 @@ Nella `piall@trice`, per evitare di loggarsi come `root` ma avviare lo stesso
 i subprocess che necessitano permessi di root senza dover mettere la password,  
 aggiungere le seguenti righe al file `/etc/sudoers`:
 
-`piall ALL=(ALL) NOPASSWD : /sbin/shutdown`
-`piall ALL=(ALL) NOPASSWD : /sbin/badblocks`
+`piall ALL=(ALL) NOPASSWD : /sbin/shutdown`  
+`piall ALL=(ALL) NOPASSWD : /sbin/badblocks`  
 
 ## TODO  
 - [X] Chiamare dei subprocess più opportuni (attualmente non lo sono abbastanza).  
