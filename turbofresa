@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 """
-    T.U.R.B.O.F.R.E.S.A
-    Turboaggeggio Utile alla Rimorzione di Byte Obrobriosi e di abominevoli
-    File da dischi rigidi Riciclati ed altri Elettronici Sistemi di
-    Archiviazione di dati.
-    Copyright (C) 2018  Hyd3L
+	T.U.R.B.O.F.R.E.S.A
+	Turboaggeggio Utile alla Rimorzione di Byte Obrobriosi e di abominevoli
+	File da dischi rigidi Riciclati ed altri Elettronici Sistemi di
+	Archiviazione di dati.
+	Copyright (C) 2018  Hyd3L
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+	This program is free software: you can redistribute it and/or modify
+	it under the terms of the GNU General Public License as published by
+	the Free Software Foundation, either version 3 of the License, or
+	(at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+	This program is distributed in the hope that it will be useful,
+	but WITHOUT ANY WARRANTY; without even the implied warranty of
+	MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+	GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+	You should have received a copy of the GNU General Public License
+	along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
 import os
@@ -178,7 +178,7 @@ def main():
 	parser.set_defaults(pretend=False)
 	args = parser.parse_args()
 
-	ask_confirm()
+	# ask_confirm()
 	print("===> Detecting connected hard drives.")
 	hdds = detect_disks(args.pretend)
 	tasks = list()

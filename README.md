@@ -16,6 +16,7 @@ aggiungere le seguenti righe al file `/etc/sudoers`:
 
 ## TODO  
 - [X] Chiamare dei subprocess più opportuni (attualmente non lo sono abbastanza).  
-- [ ] Implementare un algoritmo di lettura statistica del disco che determini con buona probabilità e rapidità se il disco é piallato o no.  
+- [ ] Chiudere il log file ogni volta in modo tale da poterlo usare. Renderlo più verbose.  
 - [ ] Fare in modo che lo script legga da `lshw -c disk -json` il seriale del disco rigido e che interroghi il db del `tarallo` per ottenere il codice di inventario del disco rigido.  
+- [ ] Dire al tarallo di spostare automaticamente i dischi rilevati dentro alla `piall@trice`.  
 - [ ] Fare in modo che lo script comunichi con il `tarallo` in modo tale da aggiornare l'inventario automaticamente non appena il disco è piallato.  
