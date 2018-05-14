@@ -28,7 +28,7 @@ import subprocess
 import argparse  # @quel_tale will you finally stop smashing my nuts?
 from getpass import getuser
 
-__version__ = '1.1'
+__version__ = '1.1.4'
 
 # Path of the log file
 LOG_PATH = '/home/' + getuser() + '/.local/share/turbofresa/log.txt'
