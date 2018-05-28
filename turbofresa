@@ -28,14 +28,10 @@ import subprocess
 import argparse  # @quel_tale will you finally stop smashing my nuts?
 from getpass import getuser
 
-__version__ = '1.1.4'
+__version__ = '1.1.5'
 
 # Path of the log file
 LOG_PATH = '/home/' + getuser() + '/.local/share/turbofresa/log.txt'
-
-# Verbosity levels
-ERROR, WARNING, INFO = range(0, 3)
-VERBOSITY = INFO
 
 
 def now():
@@ -50,35 +46,56 @@ class Console(object):
 		Class that handles the log file.
 	"""
 	def __init__(self):
-		self.printLevel = VERBOSITY
 		try:
 			self.logFile = open(LOG_PATH, "a")
+			self.logFile.close()
 		except IOError:
 			print("error: Permission denied. Log file couldn't be created.")
 			sys.exit(34)
 
 	def info(self, msg, to_std_out=False):
-		if self.printLevel >= INFO:
+		try:
+			self.logFile = open(LOG_PATH, "a")
 			if to_std_out is True:
 				print("info: " + msg)
 			self.logFile.write(now() + "info: " + msg + '\n')
+			self.exit()
+		except IOError:
+			print("error: Log file IOError")
+			sys.exit(43)
 
 	def task(self, msg, to_std_out=False):
-		if to_std_out is True:
-			print("task: " + msg)
-		self.logFile.write(now() + "task: " + msg + '\n')
+		try:
+			self.logFile = open(LOG_PATH, "a")
+			if to_std_out is True:
+				print("task: " + msg)
+			self.logFile.write(now() + "task: " + msg + '\n')
+			self.exit()
+		except IOError:
+			print("error: Log file IOError")
+			sys.exit(43)
 
 	def warn(self, msg, to_std_out=False):
-		if self.printLevel >= WARNING:
+		try:
+			self.logFile = open(LOG_PATH, "a")
 			if to_std_out is True:
 				print("warning: " + msg)
 			self.logFile.write(now() + "warning: " + msg + '\n')
+			self.exit()
+		except IOError:
+			print("error: Log file IOError")
+			sys.exit(43)
 
 	def error(self, msg, to_std_out=False):
-		if self.printLevel >= ERROR:
+		try:
+			self.logFile = open(LOG_PATH, "a")
 			if to_std_out is True:
 				print("error: " + msg)
 			self.logFile.write(now() + "error: " + msg + '\n')
+			self.exit()
+		except IOError:
+			print("error: Log file IOError")
+			sys.exit(43)
 
 	def exit(self):
 		self.logFile.close()
