@@ -22,6 +22,8 @@
 
 import os
 import sys
+import json
+import requests
 import datetime
 import threading
 import subprocess
@@ -32,6 +34,12 @@ __version__ = '1.1.5'
 
 # Path of the log file
 LOG_PATH = '/home/' + getuser() + '/.local/share/turbofresa/log.txt'
+
+# T.A.R.A.L.L.O. variables
+TARALLO = 'https://tarallo.weeeopen.it'
+tarallo_cookie = None
+tarallo_user = os.environ.get('TARALLO_USER')
+tarallo_pwd = os.environ.get('TARALLO_PWD')
 
 
 def now():
@@ -133,13 +141,53 @@ def detect_os() -> str:
 	return os_disk
 
 
+def tarallo_login() -> bool:
+	"""
+		Checks if turbofresa is already logged in
+	:return: True if logged or False if sth went wrong
+	"""
+	whoami = requests.get(TARALLO + 'v1/session')
+
+	if whoami.status_code == 200:
+		return True
+
+	if whoami.status_code == 403:
+		return False
+
+	body = dict()
+	body['username'] = tarallo_user
+	body['password'] = tarallo_pwd
+	headers = {"Content-Type": "application/json"}
+	res = requests.post(TARALLO + 'v1/session', data=json.dumps(body), headers=headers)
+
+	if res.status_code == 200:
+		global tarallo_cookie
+		try:
+			tarallo_cookie = res.cookies
+		except:
+			return False
+		return True
+	else:
+		return False
+
+
+def get_disk_code(path) -> str():
+	if tarallo_login():
+		serial = os.popen('sudo smartctl -x '+ path + ' | grep Serial').read().split(':')[1].replace(' ', '').replace('\n', '')
+		# TODO : To be continued...
+	else:
+		log.error("Could not retrieve HDD code from T.A.R.A.L.L.O. for "+path)
+
+
 def detect_disks(dry_run) -> list:
 	"""
 		Detects the hard drives connected to the machine
 		:return: a list containing '/dev/sdX' entries
 	"""
 	os_disk = detect_os()
-	disks = list()
+	disk_list = list()
+	disk = dict()
+
 	lsblk = os.popen('lsblk | grep sd').read().split('\n')
 	for line in lsblk:
 		if line.startswith('s'):
@@ -150,8 +198,10 @@ def detect_disks(dry_run) -> list:
 				else:
 					print("Skipping mounted drive: %s." % path)
 				continue
-			disks.append(path)
-	return disks
+			disk['path'] = path
+			disk['code'] = get_disk_code(path)
+			disk_list.append(disk)
+	return disk_list
 
 
 class Task(threading.Thread):
@@ -164,8 +214,8 @@ class Task(threading.Thread):
 			:param hdd: A '/dev/sdX' formatted string
 		"""
 		threading.Thread.__init__(self)
-		self.disk_path = hdd
-		self.drive_name = hdd.split('/')[2]
+		self.disk_path = hdd['path']
+		self.drive_name = hdd['code']
 
 	def run(self):
 		"""
