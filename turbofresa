@@ -209,7 +209,7 @@ def detect_disks(dry_run) -> list:
 	"""
 		Detects the hard drives connected to the machine
 		:param dry_run: If the script is dry-running don't modify the logFile
-		:return: a list containing '/dev/sdX' entries
+		:return: a list containing {'path': '/dev/sd_', 'code': 'HDD___'} entries
 	"""
 	os_disk = detect_os()
 	disk_list = list()
