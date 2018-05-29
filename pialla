@@ -23,7 +23,7 @@
 from sys import argv
 from os import popen
 
-__version__ = '1.2-rc2'
+__version__ = '1.2-rc3'
 
 
 def version():
