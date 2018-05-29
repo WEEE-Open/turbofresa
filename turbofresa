@@ -30,7 +30,7 @@ import subprocess
 import argparse  # @quel_tale will you finally stop smashing my nuts?
 from getpass import getuser
 
-__version__ = '1.2-rc1'
+__version__ = '1.2-rc2'
 
 # Path of the log file
 LOG_PATH = '/home/' + getuser() + '/.local/share/turbofresa/log.txt'
@@ -163,6 +163,7 @@ def tarallo_login(dry_run) -> bool:
 
 		if res.status_code == 200:
 			global tarallo_cookie
+			tarallo_cookie = res.cookies
 			return True
 		else:
 			return False
