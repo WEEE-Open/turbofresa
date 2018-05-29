@@ -41,6 +41,9 @@ tarallo_cookie = None
 tarallo_user = os.environ.get('TARALLO_USER')
 tarallo_pwd = os.environ.get('TARALLO_PWD')
 
+# Dry run status
+joking = None
+
 
 def now():
 	"""
@@ -141,7 +144,7 @@ def detect_os() -> str:
 	return os_disk
 
 
-def tarallo_login(dry_run) -> bool:
+def tarallo_login() -> bool:
 	"""
 		Checks if turbofresa is already logged in
 		:return: True if logged or False if sth went wrong
@@ -168,68 +171,66 @@ def tarallo_login(dry_run) -> bool:
 		else:
 			return False
 	except requests.exceptions.ConnectionError:
-		if not dry_run:
+		if not joking:
 			log.warn("Failed connection with T.A.R.A.L.L.O. Skipping retrieving HDD codes")
 		else:
 			print("Failed connection with T.A.R.A.L.L.O. Skipping retrieving HDD codes")
 
 
-def get_disk_code(path, dry_run) -> str:
+def get_disk_code(path) -> str:
 	"""
 		Retrieves the HDD code from T.A.R.A.L.L.O.
 		:param path: The /dev/sdX path of the HDD
-		:param dry_run: If the script is dry-running don't modify the logFile
 		:return: Either the HDD code or a 'sdX' string that will be used as filename
 	"""
 	disk_code = str()
-	if tarallo_login(dry_run):
+	if tarallo_login():
 		serial = os.popen('sudo smartctl -x ' + path + ' | grep Serial') \
 							.read().split(':')[1].replace(' ', '').replace('\n', '')
 		res = requests.get(TARALLO + '/v1/features/sn/' + serial, cookies=tarallo_cookie)
 		if res.status_code == 200:
 			disk_code = res.json()['data'][0]
-			if not dry_run:
+			if not joking:
 				log.task("Detected " + disk_code + " on " + path)
 			else:
 				print("Detected " + disk_code + " on " + path)
 		else:
-			if not dry_run:
+			if not joking:
 				log.warn("Code not found for " + path)
 			else:
 				print("Code not found for " + path)
 			disk_code = path.split('/')[2]
 	else:
-		if not dry_run:
+		if not joking:
 			log.warn("Could not retrieve HDD code from T.A.R.A.L.L.O. for "+path)
 		else:
 			print("Could not retrieve HDD code from T.A.R.A.L.L.O. for "+path)
 	return disk_code
 
 
-def detect_disks(dry_run) -> list:
+def detect_disks() -> list:
 	"""
 		Detects the hard drives connected to the machine
-		:param dry_run: If the script is dry-running don't modify the logFile
 		:return: a list containing {'path': '/dev/sd_', 'code': 'HDD___'} entries
 	"""
 	os_disk = detect_os()
 	disk_list = list()
 	disk = dict()
 
-	if not dry_run:
+	if not joking:
 		log.task("Detecting hard drives...")
 	lsblk = os.popen('lsblk | grep sd').read().split('\n')
 	for line in lsblk:
 		if line.startswith('s'):
 			path = '/dev/'+line[:3]
 			if path == os_disk:
-				if not dry_run:
+				if not joking:
 					log.info("Skipping mounted drive: %s." % path, True)
 				else:
 					print("Skipping mounted drive: %s." % path)
 				continue
 			disk['path'] = path
-			disk['code'] = get_disk_code(path, dry_run)
+			disk['code'] = get_disk_code(path)
 			disk_list.append(disk)
 	return disk_list
 
@@ -275,11 +276,12 @@ def main():
 	parser.set_defaults(shutdown=False)
 	parser.set_defaults(pretend=False)
 	args = parser.parse_args()
+	global joking
 	joking = args.pretend
 
 	# ask_confirm()
 	print("===> Detecting connected hard drives.")
-	hdds = detect_disks(args.pretend)
+	hdds = detect_disks()
 	tasks = list()
 
 	for d in hdds:

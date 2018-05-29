@@ -23,6 +23,22 @@
 from sys import argv
 from os import popen
 
+__version__ = '1.2-rc2'
+
+
+def version():
+	print('pialla ' + __version__)
+
+
+def help_message():
+	print("usage: pialla [-h] [-s] [-p] [--version]")
+	print("\nAutomatically drill every single connected hard drive. (in background)\n")
+	print("optional arguments:")
+	print("  -h, --help      show this help message and exit")
+	print("  -s, --shutdown  Shutdown the machine when everything is done.")
+	print("  -p, --pretend   Pretend to be doing stuff.")
+	print("  --version, -V   show program's version number and exit")
+
 
 def ask_confirm():
 	"""
@@ -30,11 +46,18 @@ def ask_confirm():
 	"""
 	ans = input("Are you 100% sure of what you're about to do? [N/y] ")
 	if not (ans == 'Y' or ans == 'y'):
+		help_message()
 		quit(0)
 
 
-ask_confirm()
 args = 'turbofresa '
 for a in argv[1:]:
+	if a == '-h' or a == '--help':
+		help_message()
+		quit(0)
+	if a == '-V' or a == '--version':
+		version()
+		quit(0)
 	args += a+' '
+ask_confirm()
 popen(args)
