@@ -182,7 +182,7 @@ def get_disk_code(path, dry_run) -> str:
 	"""
 	disk_code = str()
 	if tarallo_login(dry_run):
-		serial = os.popen('sudo smartctl -x '+ path + ' | grep Serial') \
+		serial = os.popen('sudo smartctl -x ' + path + ' | grep Serial') \
 							.read().split(':')[1].replace(' ', '').replace('\n', '')
 		res = requests.get(TARALLO + '/v1/features/sn/' + serial, cookies=tarallo_cookie)
 		if res.status_code == 200:
