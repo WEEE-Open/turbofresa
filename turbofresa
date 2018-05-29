@@ -30,7 +30,7 @@ import subprocess
 import argparse  # @quel_tale will you finally stop smashing my nuts?
 from getpass import getuser
 
-__version__ = '1.1.5'
+__version__ = '1.2-rc1'
 
 # Path of the log file
 LOG_PATH = '/home/' + getuser() + '/.local/share/turbofresa/log.txt'
@@ -141,65 +141,94 @@ def detect_os() -> str:
 	return os_disk
 
 
-def tarallo_login() -> bool:
+def tarallo_login(dry_run) -> bool:
 	"""
 		Checks if turbofresa is already logged in
 	:return: True if logged or False if sth went wrong
 	"""
-	whoami = requests.get(TARALLO + 'v1/session')
+	try:
+		whoami = requests.get(TARALLO + '/v1/session')
 
-	if whoami.status_code == 200:
-		return True
+		if whoami.status_code == 200:
+			return True
 
-	if whoami.status_code == 403:
-		return False
-
-	body = dict()
-	body['username'] = tarallo_user
-	body['password'] = tarallo_pwd
-	headers = {"Content-Type": "application/json"}
-	res = requests.post(TARALLO + 'v1/session', data=json.dumps(body), headers=headers)
-
-	if res.status_code == 200:
-		global tarallo_cookie
-		try:
-			tarallo_cookie = res.cookies
-		except:
+		if whoami.status_code == 403:
 			return False
-		return True
-	else:
-		return False
+
+		body = dict()
+		body['username'] = tarallo_user
+		body['password'] = tarallo_pwd
+		headers = {'Content-Type': 'application/json'}
+		res = requests.post(TARALLO + '/v1/session', data=json.dumps(body), headers=headers)
+
+		if res.status_code == 200:
+			global tarallo_cookie
+			return True
+		else:
+			return False
+	except requests.exceptions.ConnectionError:
+		if not dry_run:
+			log.warn("Failed connection with T.A.R.A.L.L.O. Skipping retrieving HDD codes")
+		else:
+			print("Failed connection with T.A.R.A.L.L.O. Skipping retrieving HDD codes")
 
 
-def get_disk_code(path) -> str():
-	if tarallo_login():
-		serial = os.popen('sudo smartctl -x '+ path + ' | grep Serial').read().split(':')[1].replace(' ', '').replace('\n', '')
-		# TODO : To be continued...
+def get_disk_code(path, dry_run) -> str:
+	"""
+		Retrieves the HDD code from T.A.R.A.L.L.O.
+		:param path: The /dev/sdX path of the HDD
+		:param dry_run: If the script is dry-running don't modify the logFile
+		:return: Either the HDD code or a 'sdX' string that will be used as filename
+	"""
+	disk_code = str()
+	if tarallo_login(dry_run):
+		serial = os.popen('sudo smartctl -x '+ path + ' | grep Serial') \
+							.read().split(':')[1].replace(' ', '').replace('\n', '')
+		res = requests.get(TARALLO + '/v1/features/sn/' + serial, cookies=tarallo_cookie)
+		if res.status_code == 200:
+			disk_code = res.json()['data'][0]
+			if not dry_run:
+				log.task("Detected " + disk_code + " on " + path)
+			else:
+				print("Detected " + disk_code + " on " + path)
+		else:
+			if not dry_run:
+				log.warn("Code not found for " + path)
+			else:
+				print("Code not found for " + path)
+			disk_code = path.split('/')[2]
 	else:
-		log.error("Could not retrieve HDD code from T.A.R.A.L.L.O. for "+path)
+		if not dry_run:
+			log.warn("Could not retrieve HDD code from T.A.R.A.L.L.O. for "+path)
+		else:
+			print("Could not retrieve HDD code from T.A.R.A.L.L.O. for "+path)
+	return disk_code
 
 
 def detect_disks(dry_run) -> list:
 	"""
 		Detects the hard drives connected to the machine
+		:param dry_run: If the script is dry-running don't modify the logFile
 		:return: a list containing '/dev/sdX' entries
 	"""
 	os_disk = detect_os()
 	disk_list = list()
 	disk = dict()
 
+	if not dry_run:
+		log.task("Detecting hard drives...")
 	lsblk = os.popen('lsblk | grep sd').read().split('\n')
 	for line in lsblk:
 		if line.startswith('s'):
 			path = '/dev/'+line[:3]
 			if path == os_disk:
-				if dry_run is False:
+				if not dry_run:
 					log.info("Skipping mounted drive: %s." % path, True)
 				else:
 					print("Skipping mounted drive: %s." % path)
 				continue
 			disk['path'] = path
-			disk['code'] = get_disk_code(path)
+			disk['code'] = get_disk_code(path, dry_run)
 			disk_list.append(disk)
 	return disk_list
 
@@ -222,7 +251,8 @@ class Task(threading.Thread):
 			This is the crucial part of the program.
 			Here badblocks writes a stream of 0x00 bytes on the hard drive.
 			After the writing process, it reads every blocks to ensure that they are actually 0x00 bytes.
-			Bad blocks are eventually written in a txt file named as sdX.
+			Bad blocks are eventually written in a txt file named as HDDXXX or sdX in case of failures
+			while retrieving the HDD code from T.A.R.A.L.L.O.
 			If this file is empty, then the disk is good to go, otherwise it'll be kept
 			and the broken hard drive is reported into the log file.
 		"""
@@ -244,6 +274,7 @@ def main():
 	parser.set_defaults(shutdown=False)
 	parser.set_defaults(pretend=False)
 	args = parser.parse_args()
+	joking = args.pretend
 
 	# ask_confirm()
 	print("===> Detecting connected hard drives.")
@@ -255,19 +286,19 @@ def main():
 
 	print("===> Cleaning disks")
 	for t in tasks:
-		if args.pretend is False:
+		if not joking:
 			t.start()
 		else:
 			print("Started cleaning")
 
 	for t in tasks:
-		if args.pretend is False:
+		if not joking:
 			t.join()
 		else:
 			print("Ended cleaning")
 
 	if args.shutdown is True:
-		if args.pretend is False:
+		if not joking:
 			log.info("System halted by the user.")
 			subprocess.run(['sudo', 'shutdown'])
 		else:
