@@ -144,7 +144,7 @@ def detect_os() -> str:
 def tarallo_login(dry_run) -> bool:
 	"""
 		Checks if turbofresa is already logged in
-	:return: True if logged or False if sth went wrong
+		:return: True if logged or False if sth went wrong
 	"""
 	try:
 		whoami = requests.get(TARALLO + '/v1/session')
