@@ -13,6 +13,7 @@ aggiungere le seguenti righe al file `/etc/sudoers`:
 
 `piall ALL=(ALL) NOPASSWD : /sbin/shutdown`  
 `piall ALL=(ALL) NOPASSWD : /sbin/badblocks`  
+`piall ALL=(ALL) NOPASSWD : /sbin/smartctl`
 
 ## TODO  
 - [X] Chiamare dei subprocess più opportuni (attualmente non lo sono abbastanza).  
