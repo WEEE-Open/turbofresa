@@ -3,21 +3,21 @@ Turboaggeggio Utile alla Rimorzione di Byte Obrobriosi e di abominevoli
 File da dischi rigidi Riciclati ed altri Elettronici Sistemi di  
 Archiviazione di dati.  
 
-## INSTALLAZIONE
-Scaricare il file `install.sh` da qualche parte e avviarlo con `sudo`.
+## INSTALL  
+Download the `install.sh` file and run it with `root` privileges.  
 
-## NOTE
-Nella `piall@trice`, per evitare di loggarsi come `root` ma avviare lo stesso  
-i subprocess che necessitano permessi di root senza dover mettere la password,  
-aggiungere le seguenti righe al file `/etc/sudoers`:
+In the `piall@trice`, modify the `/etc/sudoers` file adding these lines:  
 
 `piall ALL=(ALL) NOPASSWD : /sbin/shutdown`  
 `piall ALL=(ALL) NOPASSWD : /sbin/badblocks`  
-`piall ALL=(ALL) NOPASSWD : /sbin/smartctl`
+`piall ALL=(ALL) NOPASSWD : /sbin/smartctl`  
+
+And modify the `.zshrc` or `.bashrc` file adding the required secret environment variables.  
 
 ## TODO  
-- [X] Chiamare dei subprocess più opportuni (attualmente non lo sono abbastanza).  
-- [X] Chiudere il log file ogni volta in modo tale da poterlo usare. Renderlo più verbose.  
-- [X] Fare in modo che lo script legga da `lshw -c disk -json` il seriale del disco rigido e che interroghi il db del `tarallo` per ottenere il codice di inventario del disco rigido.  
-- [ ] Dire al tarallo di spostare automaticamente i dischi rilevati dentro alla `piall@trice`.  
-- [ ] Fare in modo che lo script comunichi con il `tarallo` in modo tale da aggiornare l'inventario automaticamente non appena il disco è piallato.  
+- [X] Call subprocesses in a decent way (at the moment they kinda suck).  
+- [X] Close and reopen the logFile in order to make it readable. Make it more verbose.  
+- [X] Retrieve HDD codes from `tarallo` database using `requests` module.  
+- [ ] Find a more proper way to parse the serial number of the hard drives.  
+- [ ] Sending a proper HTTP request to `tarallo` to tell him to automatically move connected HDDs to `piall@trice`.  
+- [ ] Automatically update `tarallo` database once the erasing process is terminated or once it turns out that the HDD is fucked up.  
