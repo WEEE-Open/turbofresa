@@ -12,5 +12,4 @@ In the `piall@trice`, modify the `/etc/sudoers` file adding these lines:
 `piall ALL=(ALL) NOPASSWD : /sbin/badblocks`  
 `piall ALL=(ALL) NOPASSWD : /sbin/smartctl`  
 
-And export the required environment variables.  
-
+And add the required values to the config file.
