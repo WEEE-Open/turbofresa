@@ -49,7 +49,6 @@ def tarallo_login() -> bool:
     Checks if turbofresa is already logged in
     :return: True if logged or False if sth went wrong
     """
-    # TODO: I'd like to get rid of this shit and use sqlalchemy instead
     try:
         whoami = requests.get('tarallo_link' + '/v1/session')
 
