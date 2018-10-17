@@ -22,7 +22,7 @@
 
 import os
 import json
-import logging
+import logging  # TODO: Add log messages
 import requests
 import threading
 import subprocess
@@ -30,8 +30,9 @@ import argparse  # @quel_tale will you finally stop smashing my nuts?
 
 __version__ = '1.3'
 
-# Dry run status
-joking = None
+# Run parameters
+quiet = None
+simulate = None
 
 
 def ask_confirm():
@@ -43,32 +44,24 @@ def ask_confirm():
         exit(0)
 
 
-def detect_os() -> str:
-    """
-    Detects the hard drives connected to the machine
-    :return: a list containing '/dev/sdX' entries
-    """
-    os_disk = os.popen('df | grep /dev/sd | cut -b -8').read().split('\n')[0]
-    return os_disk
-
-
 def tarallo_login() -> bool:
     """
     Checks if turbofresa is already logged in
     :return: True if logged or False if sth went wrong
     """
+    # TODO: I'd like to get rid of this shit and use sqlalchemy instead
     try:
-        whoami = requests.get(tarallo_link + '/v1/session')
+        whoami = requests.get('tarallo_link' + '/v1/session')
 
         if whoami.status_code == 200:
             return True
 
         if whoami.status_code == 403:
             body = dict()
-            body['username'] = tarallo_user
-            body['password'] = tarallo_pwd
+            body['username'] = None  # Retrieve this from the config file
+            body['password'] = None  # Retrieve this from the config file
             headers = {'Content-Type': 'application/json'}
-            res = requests.post(tarallo_link + '/v1/session', data=json.dumps(body), headers=headers)
+            res = requests.post('tarallo_link' + '/v1/session', data=json.dumps(body), headers=headers)
 
             if res.status_code == 200:
                 global tarallo_cookie
@@ -77,39 +70,12 @@ def tarallo_login() -> bool:
             else:
                 return False
     except requests.exceptions.ConnectionError:
-        if joking:
-            print("Failed connection with T.A.R.A.L.L.O. Skipping retrieving HDD codes")
-
-
-def get_disk_code(path) -> str:
-    """
-    Retrieves the HDD code from T.A.R.A.L.L.O.
-    :param path: The /dev/sdX path of the HDD
-    :return: Either the HDD code or a 'sdX' string that will be used as filename
-    """
-    disk_code = str()
-    if tarallo_login():
-        serial = os.popen('sudo smartctl -x ' + path + ' | grep Serial') \
-                            .read().split(':')[1].replace(' ', '').replace('\n', '')
-        res = requests.get(tarallo_link + '/v1/features/sn/' + serial, cookies=tarallo_cookie)
-        if res.status_code == 200:
-            disk_code = res.json()['data'][0]
-            if not joking:
-                log.task("Detected " + disk_code + " on " + path)
-            else:
-                print("Detected " + disk_code + " on " + path)
+        if not simulate:
+            # Write stuff to the log file
+            pass
         else:
-            if not joking:
-                log.warn("Code not found for " + path)
-            else:
-                print("Code not found for " + path)
-            disk_code = path.split('/')[2]
-    else:
-        if not joking:
-            log.warn("Could not retrieve HDD code from T.A.R.A.L.L.O. for "+path)
-        else:
-            print("Could not retrieve HDD code from T.A.R.A.L.L.O. for "+path)
-    return disk_code
+            if not quiet:
+                print("Failed connection with T.A.R.A.L.L.O. Skipping retrieving HDD codes")
 
 
 def detect_disks() -> list:
@@ -117,40 +83,70 @@ def detect_disks() -> list:
     Detects the hard drives connected to the machine
     :return: a list containing {'path': '/dev/sd_', 'code': 'HDD___'} entries
     """
-    os_disk = detect_os()
-    disk_list = list()
-    disk = dict()
+    root = os.popen('df | grep /dev/sd | cut -b -8').read().split('\n')[0]
+    hard_drives = []
 
-    if not joking:
-        log.task("Detecting hard drives...")
-    lsblk = os.popen('lsblk | grep sd').read().split('\n')
-    for line in lsblk:
-        if line.startswith('s'):
-            path = '/dev/'+line[:3]
-            if path == os_disk:
-                if not joking:
-                    log.info("Skipping mounted drive: %s." % path, True)
+    lsblk = json.loads(os.popen('lsblk -J'))
+    # TODO: Parse the connected hard drives
+    return hard_drives
+
+
+class Disk(object):
+    """
+    Hard Disk Drive
+    """
+    def __init__(self, dev):
+        self.code = None
+        self.serial = None
+        self.dev = dev
+
+    def retrieve_serial(self):
+        self.serial = os.popen('sudo smartctl -x ' + path + ' | grep Serial') \
+            .read().split(':')[1].replace(' ', '').replace('\n', '')
+
+    def retrieve_code(self):
+        """
+        Retrieves the HDD code from T.A.R.A.L.L.O.
+        :param path: The /dev/sdX path of the HDD
+        :return: Either the HDD code or a 'sdX' string that will be used as filename
+        """
+        if tarallo_login():
+            res = requests.get('tarallo_link' + '/v1/features/sn/' + self.serial, cookies=tarallo_cookie)
+            if res.status_code == 200:
+                self.code = res.json()['data'][0]
+                if not simulate:
+                    # Write stuff to the log file
+                    pass
                 else:
-                    print("Skipping mounted drive: %s." % path)
-                continue
-            disk['path'] = path
-            disk['code'] = get_disk_code(path)
-            disk_list.append(disk)
-    return disk_list
+                    if not quiet:
+                        print("Detected " + self.code + " on " + path)
+            else:
+                if not simulate:
+                    # Write stuff to the log file
+                    pass
+                else:
+                    if not quiet:
+                        print("Code not found for " + path)
+                self.code = path.split('/')[2]
+        else:
+            if not simulate:
+                # Write stuff to the log file
+                pass
+            else:
+                if not quiet:
+                    print("Could not retrieve HDD code from T.A.R.A.L.L.O. for " + path)
 
 
 class Task(threading.Thread):
     """
-    Class that handles the cleaning operation of a disk
+    Disk cleaning thread
     """
-
-    def __init__(self, hdd):
+    def __init__(self, disk):
         """
-        :param hdd: A '/dev/sdX' formatted string
+        :param disk: Disk object
         """
         threading.Thread.__init__(self)
-        self.disk_path = hdd['path']
-        self.drive_name = hdd['code']
+        self.disk = disk
 
     def run(self):
         """
@@ -160,54 +156,63 @@ class Task(threading.Thread):
         Bad blocks are eventually written in a txt file named as HDDXXX or sdX in case of failures
         while retrieving the HDD code from T.A.R.A.L.L.O.
         If this file is empty, then the disk is good to go, otherwise it'll be kept
-        and the broken hard drive is reported into the log file.
+        and the broken hard drive is reported into the log file and informations
+        are written to the T.A.R.A.L.L.O. database.
         """
-        log.task("Started cleaning %s." % self.drive_name)
-        subprocess.run(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', self.drive_name, self.disk_path])
-        result = os.popen('cat %s' % self.drive_name).read()
+        subprocess.run(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', self.disk.code, self.disk.dev])
+        result = os.popen('cat %s' % self.disk.code).read()
         if result == "":
-            log.task("%s successfully cleaned." % self.drive_name)
-            subprocess.run(['rm', '-f', self.drive_name])
+            subprocess.run(['rm', '-f', self.disk.code])
         else:
-            log.task("%s is broken. Please, check the badblocks list." % self.drive_name)
+            # TODO: Write on tarallo that the hard drive is broken
+            # Write it in the turbofresa log file as well
+            pass
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Automatically drill every single connected hard drive.')
     parser.add_argument('-s', '--shutdown', action='store_true', help='Shutdown the machine when everything is done.')
-    parser.add_argument('-p', '--pretend', action='store_true', help='Pretend to be doing stuff.')
+    parser.add_argument('-q', '--quiet', action='store_true', help='Run in background and suppress stdout.')
+    parser.add_argument('-d', '--dry', action='store_true', help='Launch simulation.')
     parser.add_argument('--version', '-V', action='version', version='%(prog)s v.' + __version__)
     parser.set_defaults(shutdown=False)
-    parser.set_defaults(pretend=False)
+    parser.set_defaults(quiet=False)
+    parser.set_defaults(dry=False)
     args = parser.parse_args()
-    joking = args.pretend
+    quiet = args.quiet
+    simulate = args.dry
 
     # ask_confirm()
-    print("===> Detecting connected hard drives.")
-    hdds = detect_disks()
-    tasks = list()
+    if not quiet:
+        print("===> Detecting connected hard drives.")
+    disks = detect_disks()
+    tasks = []
 
-    for d in hdds:
+    for d in disks:
         tasks.append(Task(d))
 
-    print("===> Cleaning disks")
+    if not quiet:
+        print("===> Cleaning disks")
     for t in tasks:
-        if not joking:
+        if not simulate:
             t.start()
         else:
-            print("Started cleaning")
+            if not quiet:
+                print("Started cleaning")
 
     for t in tasks:
-        if not joking:
+        if not simulate:
             t.join()
         else:
-            print("Ended cleaning")
+            if not quiet:
+                print("Ended cleaning")
 
     if args.shutdown is True:
-        if not joking:
-            log.info("System halted by the user.")
+        if not simulate:
             subprocess.run(['sudo', 'shutdown'])
         else:
-            print("System halted by the user.")
-    print("Done.")
-    secure_exit()
+            if not quiet:
+                print("System halted by the user.")
+    if not quiet:
+        print("Done.")
+    exit(0)
