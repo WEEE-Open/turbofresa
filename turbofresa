@@ -80,7 +80,7 @@ def tarallo_login() -> bool:
 def detect_disks() -> list:
     """
     Detects the hard drives connected to the machine
-    :return: a list containing {'path': '/dev/sd_', 'code': 'HDD___'} entries
+    :return: a list like ['/dev/sdb', '/dev/sdc'] entries
     """
     root = os.popen('df | grep /dev/sd | cut -b -8').read().split('\n')[0]
     hard_drives = []
@@ -188,8 +188,10 @@ if __name__ == '__main__':
     tasks = []
 
     for d in disks:
+        # TODO: add a method that adds disk to tarallo, create a Disk object (or a Tarallo.Item)
+        # TODO: pass that to every other method from here onward
         tasks.append(Task(d))
-
+        
     if not quiet:
         print("===> Cleaning disks")
     for t in tasks:
