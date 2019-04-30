@@ -26,7 +26,8 @@ import logging  # TODO: Add log messages
 import requests
 import threading
 import subprocess
-import argparse  # @quel_tale will you finally stop smashing my nuts?
+import argparse
+import tarallopyapitest
 
 __version__ = '1.3'
 
