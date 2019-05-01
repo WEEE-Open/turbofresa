@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "0c7035f4f858e913eb885d2420b38719cd75f58e572f869c2ddfb02be74a3ac6"
+            "sha256": "6630189f9741c5d896fd44e1def4142b4c4429d8d4a1d51044867b82ffde37a6"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -37,19 +37,19 @@
             ],
             "version": "==2.8"
         },
+        "pytarallo": {
+            "hashes": [
+                "sha256:0baa35e68a9b923690f50af4d092772c709f036a7dcc4fa8c05bedd26676480c"
+            ],
+            "index": "pypi",
+            "version": "==0.1"
+        },
         "requests": {
             "hashes": [
                 "sha256:502a824f31acdacb3a35b6690b5fbf0bc41d63a24a45c4004352b0242707598e",
                 "sha256:7bf2a778576d825600030a110f3c0e3e8edc51dfaafe1c146e39a2027784957b"
             ],
             "version": "==2.21.0"
-        },
-        "tarallopyapitest": {
-            "hashes": [
-                "sha256:2832d759f77039085af3d783dc98b1bab836dbff9b54b6c3ac321658e1ebbd5b"
-            ],
-            "index": "pypi",
-            "version": "==0.3"
         },
         "urllib3": {
             "hashes": [
