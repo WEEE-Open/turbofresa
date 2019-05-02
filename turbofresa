@@ -86,7 +86,10 @@ def detect_disks() -> list:
     root = os.popen('df | grep /dev/sd | cut -b -8').read().split('\n')[0]
     hard_drives = []
 
-    lsblk = json.loads(os.popen('lsblk -J'))
+    lsblk = json.loads(subprocess.check_output(['lsblk', '-J']).decode('utf-8').rstrip())['blockdevices']
+    for dev in lsblk:
+        disko=dev['name']
+        hard_drives.append(disko)
     # TODO: Parse the connected hard drives
     return hard_drives
 
