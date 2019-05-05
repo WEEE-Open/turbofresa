@@ -85,15 +85,14 @@ def detect_disks() -> list:
     """
     #root = os.popen('df | grep /dev/sd | cut -b -8').read().split('\n')[0]
     hard_drives = []
-   
-
+    
     lsblk = json.loads(subprocess.check_output(['lsblk', "-J", "-o", "NAME,SERIAL,TYPE,WWN,MOUNTPOINT"]).decode('utf-8'))['blockdevices']
+    #looking for hard drives with no mount points 
     ok_disks=[]
     for d in lsblk:
         ok = True
         if d["mountpoint"] is not None:
-            ok=False
-            
+            ok=False        
         if("children" in d):      
             for child in d["children"]:
                 if child["mountpoint"] is not None:
@@ -101,10 +100,8 @@ def detect_disks() -> list:
                     break
         if ok is True:
             ok_disks.append(d["name"])
-
-
+    #exclude anything that is not an hard drive
     disks=json.loads(subprocess.check_output(['lsblk', "-J", "-I 8", "-d", "-o", "NAME,SERIAL,TYPE,WWN"]).decode('utf-8'))['blockdevices']
-
     for dev in disks:
         disco={'name':'null', 'serial':'null', 'type':'null','wwn':'null'}
         if dev["name"] in ok_disks:
