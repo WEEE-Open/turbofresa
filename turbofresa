@@ -83,14 +83,37 @@ def detect_disks() -> list:
     Detects the hard drives connected to the machine
     :return: a list like ['/dev/sdb', '/dev/sdc'] entries
     """
-    root = os.popen('df | grep /dev/sd | cut -b -8').read().split('\n')[0]
+    #root = os.popen('df | grep /dev/sd | cut -b -8').read().split('\n')[0]
     hard_drives = []
+   
 
-    lsblk = json.loads(subprocess.check_output(['lsblk', '-J']).decode('utf-8').rstrip())['blockdevices']
-    for dev in lsblk:
-        disko=dev['name']
-        hard_drives.append(disko)
-    # TODO: Parse the connected hard drives
+    lsblk = json.loads(subprocess.check_output(['lsblk', "-J", "-o", "NAME,SERIAL,TYPE,WWN,MOUNTPOINT"]).decode('utf-8'))['blockdevices']
+    ok_disks=[]
+    for d in lsblk:
+        ok = True
+        if d["mountpoint"] is not None:
+            ok=False
+            
+        if("children" in d):      
+            for child in d["children"]:
+                if child["mountpoint"] is not None:
+                    ok = False
+                    break
+        if ok is True:
+            ok_disks.append(d["name"])
+
+
+    disks=json.loads(subprocess.check_output(['lsblk', "-J", "-I 8", "-d", "-o", "NAME,SERIAL,TYPE,WWN"]).decode('utf-8'))['blockdevices']
+
+    for dev in disks:
+        disco={'name':'null', 'serial':'null', 'type':'null','wwn':'null'}
+        if dev["name"] in ok_disks:
+            disco['name']=dev["name"]
+            disco['serial']=dev['serial']
+            disco['type']=dev['type']
+            disco['wwn']=dev['wwn']
+            hard_drives.append(disco)
+#print(hard_drives)
     return hard_drives
 
 
