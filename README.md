@@ -1,6 +1,6 @@
 # T.U.R.B.O.F.R.E.S.A.  
 
-Turboaggeggio Utile alla Rimorzione di Byte Obrobriosi e di abominevoli
+Turboaggeggio Utile alla Rimozione di Byte Obrobriosi e di abominevoli
 File da dischi rigidi Riciclati ed altri Elettronici Sistemi di
 Archiviazione di dati.
 
