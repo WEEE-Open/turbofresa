@@ -199,8 +199,9 @@ class Task(Process):
         and the broken hard drive is reported into the log file and informations
         are written to the T.A.R.A.L.L.O. database.
         """
-        sp.run(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', self.disk.code, self.disk.dev])
-        exit_code = sp.Popen('cat %s' % self.disk.code)
+        exit_code = sp.Popen(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', self.disk.code, self.disk.dev]).returncode
+        # result = os.popen('cat %s' % self.disk.code).read()
+        # if result == "":
         if exit_code != 0:
             sp.run(['rm', '-f', self.disk.code])
         else:
