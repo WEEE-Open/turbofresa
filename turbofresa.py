@@ -4,7 +4,9 @@
     Turboaggeggio Utile alla Rimorzione di Byte Obrobriosi e di abominevoli
     File da dischi rigidi Riciclati ed altri Elettronici Sistemi di
     Archiviazione di dati.
-    Copyright (C) 2018  Hyd3L
+    Contributors:
+        Hyd3L
+        e-caste
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -24,10 +26,10 @@ import os
 import json
 import logging  # TODO: Add log messages
 import requests
-import threading
-import subprocess
+from multiprocessing import Process
+import subprocess as sp
 import argparse
-import pytarallo
+from .. import pytarallo  # assuming the 2 project directories are on the same level
 
 __version__ = '1.3'
 
@@ -40,9 +42,14 @@ def ask_confirm():
     """
     Asks the user if (s)he is sure of what (s)he's doing.
     """
-    a = input("Are you 100% sure of what you're about to do? [N/y] ")
-    if not (a == 'Y' or a == 'y'):
-        exit(0)
+    while True:
+        user_response = input("Are you 100% sure of what you're about to do? [N/y] ")
+        if user_response.lower() == 'y':
+            break
+        elif user_response.lower() == 'n':
+            exit(0)
+        else:
+            print("Unrecognized response... Asking again nicely.")
 
 
 def tarallo_login() -> bool:
@@ -56,7 +63,7 @@ def tarallo_login() -> bool:
         if whoami.status_code == 200:
             return True
 
-        if whoami.status_code == 403:
+        elif whoami.status_code == 403:
             body = dict()
             body['username'] = None  # Retrieve this from the config file
             body['password'] = None  # Retrieve this from the config file
@@ -69,6 +76,7 @@ def tarallo_login() -> bool:
                 return True
             else:
                 return False
+
     except requests.exceptions.ConnectionError:
         if not simulate:
             # Write stuff to the log file
@@ -86,13 +94,13 @@ def detect_disks() -> list:
     #root = os.popen('df | grep /dev/sd | cut -b -8').read().split('\n')[0]
     hard_drives = []
     
-    lsblk = json.loads(subprocess.check_output(['lsblk', "-J", "-o", "NAME,SERIAL,TYPE,WWN,MOUNTPOINT"]).decode('utf-8'))['blockdevices']
+    lsblk = json.loads(sp.check_output(['lsblk', "-J", "-o", "NAME,SERIAL,TYPE,WWN,MOUNTPOINT"]).decode('utf-8'))['blockdevices']
     #looking for hard drives with no mount points 
     ok_disks=[]
     for d in lsblk:
         ok = True
         if d["mountpoint"] is not None:
-            ok=False        
+            ok = False
         if("children" in d):      
             for child in d["children"]:
                 if child["mountpoint"] is not None:
@@ -100,21 +108,30 @@ def detect_disks() -> list:
                     break
         if ok is True:
             ok_disks.append(d["name"])
+
     #exclude anything that is not an hard drive
-    disks=json.loads(subprocess.check_output(['lsblk', "-J", "-I 8", "-d", "-o", "NAME,SERIAL,TYPE,WWN"]).decode('utf-8'))['blockdevices']
-    for dev in disks:
-        disco={'name':'null', 'serial':'null', 'type':'null','wwn':'null'}
-        if dev["name"] in ok_disks:
-            disco['name']=dev["name"]
-            disco['serial']=dev['serial']
-            disco['type']=dev['type']
-            disco['wwn']=dev['wwn']
-            hard_drives.append(disco)
-#print(hard_drives)
+    disks = json.loads(sp.check_output(['lsblk', "-J", "-I 8", "-d", "-o", "NAME,SERIAL,TYPE,WWN"]).decode('utf-8'))['blockdevices']
+    for disk in disks:
+        hard_drive = {
+            'name': 'null',
+            'serial': 'null',
+            'type': 'null',
+            'wwn': 'null'
+        }
+
+        if disk["name"] in ok_disks:
+            hard_drive['name'] = disk["name"]
+            hard_drive['serial'] = disk['serial']
+            hard_drive['type'] = disk['type']
+            hard_drive['wwn'] = disk['wwn']
+            hard_drives.append(hard_drive)
+
+    # print(hard_drives)
     return hard_drives
 
 
-class Disk(object):
+# TODO: add path
+class Disk:
     """
     Hard Disk Drive
     """
@@ -160,15 +177,15 @@ class Disk(object):
                     print("Could not retrieve HDD code from T.A.R.A.L.L.O. for " + path)
 
 
-class Task(threading.Thread):
+class Task(Process):
     """
-    Disk cleaning thread
+    Disk cleaning process
     """
     def __init__(self, disk):
         """
         :param disk: Disk object
         """
-        threading.Thread.__init__(self)
+        super().__init__(self)
         self.disk = disk
 
     def run(self):
@@ -182,10 +199,11 @@ class Task(threading.Thread):
         and the broken hard drive is reported into the log file and informations
         are written to the T.A.R.A.L.L.O. database.
         """
-        subprocess.run(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', self.disk.code, self.disk.dev])
-        result = os.popen('cat %s' % self.disk.code).read()
-        if result == "":
-            subprocess.run(['rm', '-f', self.disk.code])
+        exit_code = sp.Popen(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', self.disk.code, self.disk.dev]).returncode
+        # result = os.popen('cat %s' % self.disk.code).read()
+        # if result == "":
+        if exit_code != 0:
+            sp.run(['rm', '-f', self.disk.code])
         else:
             # TODO: Write on tarallo that the hard drive is broken
             # Write it in the turbofresa log file as well
@@ -234,7 +252,7 @@ if __name__ == '__main__':
 
     if args.shutdown is True:
         if not simulate:
-            subprocess.run(['sudo', 'shutdown'])
+            sp.run(['sudo', 'shutdown'])
         else:
             if not quiet:
                 print("System halted by the user.")
