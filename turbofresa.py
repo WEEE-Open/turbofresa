@@ -27,7 +27,7 @@ import requests
 from multiprocessing import Process
 import subprocess as sp
 import argparse
-import pytarallo
+from .. import pytarallo  # supposing the 2 project directories are on the same level
 
 __version__ = '1.3'
 
@@ -44,6 +44,8 @@ def ask_confirm():
         user_response = input("Are you 100% sure of what you're about to do? [N/y] ")
         if user_response.lower() == 'y':
             break
+        elif user_response.lower() == 'n':
+            exit(0)
         else:
             print("Unrecognized response... Asking again nicely.")
 
@@ -59,7 +61,7 @@ def tarallo_login() -> bool:
         if whoami.status_code == 200:
             return True
 
-        if whoami.status_code == 403:
+        elif whoami.status_code == 403:
             body = dict()
             body['username'] = None  # Retrieve this from the config file
             body['password'] = None  # Retrieve this from the config file
@@ -72,6 +74,7 @@ def tarallo_login() -> bool:
                 return True
             else:
                 return False
+
     except requests.exceptions.ConnectionError:
         if not simulate:
             # Write stuff to the log file
@@ -95,7 +98,7 @@ def detect_disks() -> list:
     for d in lsblk:
         ok = True
         if d["mountpoint"] is not None:
-            ok=False        
+            ok = False
         if("children" in d):      
             for child in d["children"]:
                 if child["mountpoint"] is not None:
@@ -103,17 +106,25 @@ def detect_disks() -> list:
                     break
         if ok is True:
             ok_disks.append(d["name"])
+
     #exclude anything that is not an hard drive
-    disks=json.loads(sp.check_output(['lsblk', "-J", "-I 8", "-d", "-o", "NAME,SERIAL,TYPE,WWN"]).decode('utf-8'))['blockdevices']
-    for dev in disks:
-        disco={'name':'null', 'serial':'null', 'type':'null','wwn':'null'}
-        if dev["name"] in ok_disks:
-            disco['name']=dev["name"]
-            disco['serial']=dev['serial']
-            disco['type']=dev['type']
-            disco['wwn']=dev['wwn']
-            hard_drives.append(disco)
-#print(hard_drives)
+    disks = json.loads(sp.check_output(['lsblk', "-J", "-I 8", "-d", "-o", "NAME,SERIAL,TYPE,WWN"]).decode('utf-8'))['blockdevices']
+    for disk in disks:
+        hard_drive = {
+            'name': 'null',
+            'serial': 'null',
+            'type': 'null',
+            'wwn': 'null'
+        }
+
+        if disk["name"] in ok_disks:
+            hard_drive['name'] = disk["name"]
+            hard_drive['serial'] = disk['serial']
+            hard_drive['type'] = disk['type']
+            hard_drive['wwn'] = disk['wwn']
+            hard_drives.append(hard_drive)
+            
+    # print(hard_drives)
     return hard_drives
 
 
