@@ -4,7 +4,9 @@
     Turboaggeggio Utile alla Rimorzione di Byte Obrobriosi e di abominevoli
     File da dischi rigidi Riciclati ed altri Elettronici Sistemi di
     Archiviazione di dati.
-    Copyright (C) 2018  Hyd3L
+    Contributors:
+        Hyd3L
+        e-caste
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -27,7 +29,7 @@ import requests
 from multiprocessing import Process
 import subprocess as sp
 import argparse
-from .. import pytarallo  # supposing the 2 project directories are on the same level
+from .. import pytarallo  # assuming the 2 project directories are on the same level
 
 __version__ = '1.3'
 
@@ -123,12 +125,13 @@ def detect_disks() -> list:
             hard_drive['type'] = disk['type']
             hard_drive['wwn'] = disk['wwn']
             hard_drives.append(hard_drive)
-            
+
     # print(hard_drives)
     return hard_drives
 
 
-class Disk(object):
+# TODO: add path
+class Disk:
     """
     Hard Disk Drive
     """
