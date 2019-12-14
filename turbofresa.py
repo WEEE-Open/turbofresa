@@ -29,7 +29,8 @@ import requests
 from multiprocessing import Process
 import subprocess as sp
 import argparse
-from .. import pytarallo  # assuming the 2 project directories are on the same level
+import smartctl_parser
+from pytarallo import Tarallo
 
 __version__ = '1.3'
 
@@ -86,97 +87,6 @@ def tarallo_login() -> bool:
                 print("Failed connection with T.A.R.A.L.L.O. Skipping retrieving HDD codes")
 
 
-def detect_disks() -> list:
-    """
-    Detects the hard drives connected to the machine
-    :return: a list like ['/dev/sdb', '/dev/sdc'] entries
-    """
-    #root = os.popen('df | grep /dev/sd | cut -b -8').read().split('\n')[0]
-    hard_drives = []
-    
-    lsblk = json.loads(sp.check_output(['lsblk', "-J", "-o", "NAME,SERIAL,TYPE,WWN,MOUNTPOINT"]).decode('utf-8'))['blockdevices']
-    #looking for hard drives with no mount points 
-    ok_disks=[]
-    for d in lsblk:
-        ok = True
-        if d["mountpoint"] is not None:
-            ok = False
-        if("children" in d):      
-            for child in d["children"]:
-                if child["mountpoint"] is not None:
-                    ok = False
-                    break
-        if ok is True:
-            ok_disks.append(d["name"])
-
-    #exclude anything that is not an hard drive
-    disks = json.loads(sp.check_output(['lsblk', "-J", "-I 8", "-d", "-o", "NAME,SERIAL,TYPE,WWN"]).decode('utf-8'))['blockdevices']
-    for disk in disks:
-        hard_drive = {
-            'name': 'null',
-            'serial': 'null',
-            'type': 'null',
-            'wwn': 'null'
-        }
-
-        if disk["name"] in ok_disks:
-            hard_drive['name'] = disk["name"]
-            hard_drive['serial'] = disk['serial']
-            hard_drive['type'] = disk['type']
-            hard_drive['wwn'] = disk['wwn']
-            hard_drives.append(hard_drive)
-
-    # print(hard_drives)
-    return hard_drives
-
-
-# TODO: add path
-class Disk:
-    """
-    Hard Disk Drive
-    """
-    def __init__(self, dev):
-        self.code = None
-        self.serial = None
-        self.dev = dev
-
-    def retrieve_serial(self):
-        self.serial = os.popen('sudo smartctl -x ' + path + ' | grep Serial') \
-            .read().split(':')[1].replace(' ', '').replace('\n', '')
-
-    def retrieve_code(self):
-        """
-        Retrieves the HDD code from T.A.R.A.L.L.O.
-        :param path: The /dev/sdX path of the HDD
-        :return: Either the HDD code or a 'sdX' string that will be used as filename
-        """
-        if tarallo_login():
-            res = requests.get('tarallo_link' + '/v1/features/sn/' + self.serial, cookies=tarallo_cookie)
-            if res.status_code == 200:
-                self.code = res.json()['data'][0]
-                if not simulate:
-                    # Write stuff to the log file
-                    pass
-                else:
-                    if not quiet:
-                        print("Detected " + self.code + " on " + path)
-            else:
-                if not simulate:
-                    # Write stuff to the log file
-                    pass
-                else:
-                    if not quiet:
-                        print("Code not found for " + path)
-                self.code = path.split('/')[2]
-        else:
-            if not simulate:
-                # Write stuff to the log file
-                pass
-            else:
-                if not quiet:
-                    print("Could not retrieve HDD code from T.A.R.A.L.L.O. for " + path)
-
-
 class Task(Process):
     """
     Disk cleaning process
@@ -226,7 +136,7 @@ if __name__ == '__main__':
     # ask_confirm()
     if not quiet:
         print("===> Detecting connected hard drives.")
-    disks = detect_disks()
+    disks = smartctl_parser.main()
     tasks = []
 
     for d in disks:
