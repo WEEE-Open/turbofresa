@@ -256,8 +256,6 @@ def remove_prefix(prefix, text):
 
 
 def main():
-    import json
-
     path = os.getcwd() + "/smartctl"
 
     try:
