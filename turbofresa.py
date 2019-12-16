@@ -31,6 +31,7 @@ import subprocess as sp
 import argparse
 import smartctl_parser
 from pytarallo import Tarallo
+from pytarallo.Errors import *
 
 __version__ = '1.3'
 
@@ -59,7 +60,7 @@ def tarallo_login() -> bool:
     :return: True if logged or False if sth went wrong
     """
     try:
-        whoami = requests.get('tarallo_link' + '/v1/session')
+        whoami = requests.get('tarallo_link' + '/v2/session')
 
         if whoami.status_code == 200:
             return True
@@ -139,10 +140,25 @@ if __name__ == '__main__':
     disks = smartctl_parser.main()
     tasks = []
 
+    # Tarallo connection
+    try:
+        with open('config.json') as f:
+            config = json.load(f)
+    except FileNotFoundError:
+        raise FileNotFoundError(os.getcwd() + 'config.json')
+    instance = Tarallo.Tarallo(url=config['url'], token=config['token'])
+
+    # Adding disks to clean only if into T.A.R.A.L.L.O. database
     for d in disks:
         # TODO: add a method that adds disk to tarallo, create a Disk object (or a Tarallo.Item)
         # TODO: pass that to every other method from here onward
-        tasks.append(Task(d))
+        disk_code = instance.get_codes_by_feature('sn', d['sn'])
+        if len(disk_code) > 1:
+            print("Multiple disks in the T.A.R.A.L.L.O. database corresponding to the serial number: " + d['sn'])
+        elif len(disk_code) == 0:
+            print("No disk in the T.A.R.A.L.L.O. database corresponding to the serial number: " + d['sn'])
+        else:
+            tasks.append(Task(d))
         
     if not quiet:
         print("===> Cleaning disks")
