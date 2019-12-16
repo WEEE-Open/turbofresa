@@ -25,13 +25,12 @@
 import os
 import json
 import logging  # TODO: Add log messages
-import requests
 from multiprocessing import Process
 import subprocess as sp
 import argparse
-from Disk_parser import smartctl_parser
+import smartctl_parser
 from pytarallo import Tarallo
-from pytarallo.Errors import *
+from dotenv import load_dotenv
 
 __version__ = '1.3'
 
@@ -106,12 +105,8 @@ if __name__ == '__main__':
     tasks = []
 
     # Tarallo connection
-    try:
-        with open('config.json') as f:
-            config = json.load(f)
-    except FileNotFoundError:
-        raise FileNotFoundError(os.getcwd() + 'config.json')
-    instance = Tarallo.Tarallo(url=config['url'], token=config['token'])
+    load_dotenv()
+    instance = Tarallo.Tarallo(os.getenv("TARALLO_URL"), os.getenv("TARALLO_TOKEN"))
 
     # Adding disks to clean only if into T.A.R.A.L.L.O. database
     for d in disks:

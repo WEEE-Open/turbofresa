@@ -1,5 +1,3 @@
 .idea
 venv/
 __pycache__
-tarallo_test.py
-smartctl
