@@ -29,7 +29,7 @@ import requests
 from multiprocessing import Process
 import subprocess as sp
 import argparse
-import smartctl_parser
+from Disk_parser import smartctl_parser
 from pytarallo import Tarallo
 from pytarallo.Errors import *
 
