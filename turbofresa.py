@@ -53,41 +53,6 @@ def ask_confirm():
         else:
             print("Unrecognized response... Asking again nicely.")
 
-
-def tarallo_login() -> bool:
-    """
-    Checks if turbofresa is already logged in
-    :return: True if logged or False if sth went wrong
-    """
-    try:
-        whoami = requests.get('tarallo_link' + '/v2/session')
-
-        if whoami.status_code == 200:
-            return True
-
-        elif whoami.status_code == 403:
-            body = dict()
-            body['username'] = None  # Retrieve this from the config file
-            body['password'] = None  # Retrieve this from the config file
-            headers = {'Content-Type': 'application/json'}
-            res = requests.post('tarallo_link' + '/v1/session', data=json.dumps(body), headers=headers)
-
-            if res.status_code == 200:
-                global tarallo_cookie
-                tarallo_cookie = res.cookies
-                return True
-            else:
-                return False
-
-    except requests.exceptions.ConnectionError:
-        if not simulate:
-            # Write stuff to the log file
-            pass
-        else:
-            if not quiet:
-                print("Failed connection with T.A.R.A.L.L.O. Skipping retrieving HDD codes")
-
-
 class Task(Process):
     """
     Disk cleaning process
