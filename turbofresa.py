@@ -25,12 +25,12 @@
 import os
 import json
 import logging  # TODO: Add log messages
-import requests
 from multiprocessing import Process
 import subprocess as sp
 import argparse
 import smartctl_parser
 from pytarallo import Tarallo
+from dotenv import load_dotenv
 
 __version__ = '1.3'
 
@@ -51,41 +51,6 @@ def ask_confirm():
             exit(0)
         else:
             print("Unrecognized response... Asking again nicely.")
-
-
-def tarallo_login() -> bool:
-    """
-    Checks if turbofresa is already logged in
-    :return: True if logged or False if sth went wrong
-    """
-    try:
-        whoami = requests.get('tarallo_link' + '/v1/session')
-
-        if whoami.status_code == 200:
-            return True
-
-        elif whoami.status_code == 403:
-            body = dict()
-            body['username'] = None  # Retrieve this from the config file
-            body['password'] = None  # Retrieve this from the config file
-            headers = {'Content-Type': 'application/json'}
-            res = requests.post('tarallo_link' + '/v1/session', data=json.dumps(body), headers=headers)
-
-            if res.status_code == 200:
-                global tarallo_cookie
-                tarallo_cookie = res.cookies
-                return True
-            else:
-                return False
-
-    except requests.exceptions.ConnectionError:
-        if not simulate:
-            # Write stuff to the log file
-            pass
-        else:
-            if not quiet:
-                print("Failed connection with T.A.R.A.L.L.O. Skipping retrieving HDD codes")
-
 
 class Task(Process):
     """
@@ -139,10 +104,21 @@ if __name__ == '__main__':
     disks = smartctl_parser.main()
     tasks = []
 
+    # Tarallo connection
+    load_dotenv()
+    instance = Tarallo.Tarallo(os.getenv("TARALLO_URL"), os.getenv("TARALLO_TOKEN"))
+
+    # Adding disks to clean only if into T.A.R.A.L.L.O. database
     for d in disks:
         # TODO: add a method that adds disk to tarallo, create a Disk object (or a Tarallo.Item)
         # TODO: pass that to every other method from here onward
-        tasks.append(Task(d))
+        disk_code = instance.get_codes_by_feature('sn', d['sn'])
+        if len(disk_code) > 1:
+            print("Multiple disks in the T.A.R.A.L.L.O. database corresponding to the serial number: " + d['sn'])
+        elif len(disk_code) == 0:
+            print("No disk in the T.A.R.A.L.L.O. database corresponding to the serial number: " + d['sn'])
+        else:
+            tasks.append(Task(d))
         
     if not quiet:
         print("===> Cleaning disks")
