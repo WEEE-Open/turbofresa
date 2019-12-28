@@ -29,7 +29,7 @@ from multiprocessing import Process
 import subprocess as sp
 import argparse
 import smartctl_parser
-from pytarallo import Tarallo
+from pytarallo import Tarallo, Errors, Item
 from dotenv import load_dotenv
 
 __version__ = '1.3'
@@ -85,6 +85,28 @@ class Task(Process):
             pass
 
 
+def add_to_tarallo(instance: Tarallo.Tarallo, disk: dict) -> bool:
+    """
+    Adds disk to Tarallo database
+    :param instance: Tarallo instance where to add the disk
+    :param disk: disk to add to the database
+    :return: True if added successfully, False otherwise
+    """
+    item = Item.Item()
+    item.features = disk
+    item.location = 'Magazzino'  # TODO: maybe it can be set from config or a better default should be picked
+    try:
+        instance.add_item(item=item)
+        print("Item inserted successfully")
+    except Errors.ValidationError:
+        print("Item not inserted")
+        response = instance.response
+        print("HTTP status code:", response.status_code, "\n" + response.json()['message'])
+        return False
+
+    return True
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Automatically drill every single connected hard drive.')
     parser.add_argument('-s', '--shutdown', action='store_true', help='Shutdown the machine when everything is done.')
@@ -108,17 +130,24 @@ if __name__ == '__main__':
     load_dotenv()
     instance = Tarallo.Tarallo(os.getenv("TARALLO_URL"), os.getenv("TARALLO_TOKEN"))
 
-    # Adding disks to clean only if into T.A.R.A.L.L.O. database
+    # Adding disks to clean in queue and adding them to T.A.R.A.L.L.O if not present
     for d in disks:
-        # TODO: add a method that adds disk to tarallo, create a Disk object (or a Tarallo.Item)
-        # TODO: pass that to every other method from here onward
+        print("===> Searching the T.A.R.A.L.L.O. databse for disk with serial number {}".format(d['sn']))
         disk_code = instance.get_codes_by_feature('sn', d['sn'])
         if len(disk_code) > 1:
-            print("Multiple disks in the T.A.R.A.L.L.O. database corresponding to the serial number: " + d['sn'])
+            print("Multiple disks in the database corresponding to the serial number: " + d['sn'])
+            print("Won't proceed to disk wiping until conflict is solved")
+            continue
         elif len(disk_code) == 0:
-            print("No disk in the T.A.R.A.L.L.O. database corresponding to the serial number: " + d['sn'])
-        else:
-            tasks.append(Task(d))
+            print("No corresponding disk in the database")
+            print("===> Adding disk to the database")
+            if not add_to_tarallo(instance=instance, disk=d):
+                print("Skipping wiping of this disk")
+                continue
+        elif len(disk_code) == 1:
+            print("Disk already present in the database")
+
+        tasks.append(Task(d))
         
     if not quiet:
         print("===> Cleaning disks")

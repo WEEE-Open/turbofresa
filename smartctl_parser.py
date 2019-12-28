@@ -206,7 +206,6 @@ def read_smartctl(path: str, interactive: bool = False):
                 "wwn": disk.wwn,
                 "sn": disk.serial_number,
                 "capacity-byte": disk.capacity,
-                "human_readable_capacity": disk.human_readable_capacity,
                 "smart-data": disk.smart_data.value
             }
             if disk.smart_data_long is not SMART.not_available:
@@ -222,7 +221,6 @@ def read_smartctl(path: str, interactive: bool = False):
                 # Despite the name it's still in bytes, but with SI prefix (not power of 2), "deci" is there just to
                 # tell some functions how to convert it to human-readable format
                 "capacity-decibyte": disk.capacity,
-                "human_readable_capacity": disk.human_readable_capacity,
                 "spin-rate-rpm": disk.rotation_rate,
                 "smart-data": disk.smart_data.value
             }
@@ -233,7 +231,10 @@ def read_smartctl(path: str, interactive: bool = False):
             this_disk[disk.port.value] = 1
         if disk.smart_data_long is not SMART.not_available:
             this_disk['notes'] = disk.smart_data_long
+        this_disk = {k: v for k, v in this_disk.items() if v != '' and v is not None}
         result.append(this_disk)
+
+
     return result
 
 
