@@ -15,11 +15,9 @@ fi
 rm -f "$OUTPATH"/smartctl-dev-*.txt
 
 DISKZ=($(lsblk -d -I 8 -o NAME -n))
-echo Found $((${#DISKZ[@]}-1)) disks # count reduced by 1 to ignore sda
+echo Found $((${#DISKZ[@]})) disks
 for d in "${DISKZ[@]}"; do
-  #if [ $d != "sda" ]; then # skips sda to avoid wiping system data
 	  smartctl -x /dev/$d > "$OUTPATH/smartctl-dev-$d.txt"
-	#fi
 done
 
 exit 0
