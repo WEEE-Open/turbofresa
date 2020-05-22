@@ -101,6 +101,8 @@ def ignore_user_disks() -> list:
         user_ignored = input("Insert disks to ignore separated by comma (sda,sdb,loop0,etc...): ")
         if user_ignored:
             return user_ignored.replace(" ", "").split(",")
+    else:
+        return []
 
 
 class Task(Process):
