@@ -12,7 +12,7 @@ fi
 [ ! -d $OUTPATH ] && mkdir $OUTPATH
 
 # removing all old smartctl files before writing new ones
-rm -f "$OUTPATH"/smartctl-dev-*.txt
+rm -f "$OUTPATH"/*.txt
 
 DISKZ=($(lsblk -d -I 8 -o NAME -n))
 echo Found $((${#DISKZ[@]})) disks

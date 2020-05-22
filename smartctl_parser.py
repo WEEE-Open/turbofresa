@@ -74,13 +74,14 @@ def parse_disks(interactive: bool = False, ignore: list = [], usbdebug: bool = F
 
             # Ignoring disks pointed on call
             ignored = False
-            for sd in ignore:
-                if sd in filename:
+            for mount_point in ignore:
+                if mount_point in filename:
                     ignored = True
                     break
             if ignored is True:
                 if interactive is True:
-                    print("Disk mounted at /dev/"+sd+" ignored")
+                    print("Disk mounted at /dev/"+mount_point+" ignored")
+                os.remove(smartctl_path+"/"+filename)
                 continue
 
             # File reading
@@ -95,13 +96,18 @@ def parse_disks(interactive: bool = False, ignore: list = [], usbdebug: bool = F
             if '=== START OF INFORMATION SECTION ===' not in output:
                 if usbdebug is True:
                     disk = dummy_disk()
-                elif interactive:
-                    print(f"{filename} does not contain disk information, was it a USB stick?")
+                else:
+                    if interactive:
+                        print(f"{filename} does not contain disk information, was it a USB stick?")
                     continue
             else:
                 disk = read_smartctl(output)
 
             disk.dev = filename.split("smartctl-dev-")[1].split(".txt")[0]
+
+            old_filename = "smartctl/" + filename
+            new_filename = "smartctl/" + disk.serial_number + ".txt"
+            os.rename(old_filename, new_filename)
 
             disks.append(disk)
 
@@ -349,4 +355,4 @@ def main():
 
 
 if __name__ == '__main__':
-    print(main())
+    main()
