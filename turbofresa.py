@@ -62,7 +62,7 @@ def ignore_sys_disks() -> list:
     :return: Full list of ignored disks (system + user specified)
     """
 
-    critical = [
+    criticals = [
         "/boot",
         "/home",
         "/etc",
@@ -71,23 +71,23 @@ def ignore_sys_disks() -> list:
         "/root",
         "/opt",
         "/usr",
-        "/var"
+        "/var",
+        "swap"
     ]
 
-    output = sp.check_output(["sudo", "-S", "df", "--output=source,target"]).decode(sys.stdout.encoding)
+    output = sp.check_output(["lsblk", "-ln", "-o", "NAME,MOUNTPOINT"]).decode(sys.stdout.encoding)
 
     result = []
     for line in output.splitlines():
-        source = line.split()[0]
-        target = line.split()[1]
-
-        if "/dev/sd" in source:
-            for partition in critical:
-                if partition in target or target == "/":
-                    disk = source.split("/dev/")[1]
-                    disk = ''.join(c for c in disk if not c.isdigit())
+        line = line.split()
+        if len(line) > 1:
+            partition = line[0]
+            mount_point = line[1]
+            for critical in criticals:
+                if critical in mount_point or mount_point == "/":
+                    disk = ''.join(c for c in partition if not c.isdigit())
                     if disk not in result:
-                        print(f'The partition "{target}" has been detected in "{source}", '
+                        print(f'The partition "/dev/{partition}" has been detected in "{mount_point}", '
                               f'the disk "{disk}" will be ignored')
                         result.append(disk)
                     break
