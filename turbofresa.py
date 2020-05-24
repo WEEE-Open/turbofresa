@@ -81,13 +81,13 @@ def ignore_sys_disks() -> list:
     for line in output.splitlines():
         line = line.split()
         if len(line) > 1:
-            partition = line[0]
-            mount_point = line[1]
+            mount_point = line[0]
+            partition = line[1]
             for critical in criticals:
-                if critical in mount_point or mount_point == "/":
-                    disk = ''.join(c for c in partition if not c.isdigit())
+                if critical in partition or partition == "/":
+                    disk = ''.join(c for c in mount_point if not c.isdigit())
                     if disk not in result:
-                        print(f'The partition "/dev/{partition}" has been detected in "{mount_point}", '
+                        print(f'The partition "{partition}" has been detected in "/dev/{mount_point}", '
                               f'the disk "{disk}" will be ignored')
                         result.append(disk)
                     break
@@ -131,12 +131,13 @@ class Task(Process):
         mount_point = self.disk['mount_point']
 
         # Unmounting disk
-        output = sp.check_output(["lsblk", "-ln", "-o", "NAME,MOUNTPOINT", "|", "grep", mount_point]).decode(sys.stdout.encoding)
+        output = sp.check_output(["lsblk", "-ln", "-o", "NAME,MOUNTPOINT"]).decode(sys.stdout.encoding)
         for line in output.splitlines():
-            line = line.split()
-            if len(line) > 1:
-                sp.run(["umount", os.path.join("/dev", mount_point)])
-                break
+            if line.startswith(mount_point):
+                line = line.split()
+                if len(line) > 1:
+                    sp.run(["sudo", "umount", os.path.join("/dev", mount_point)])
+                    break
 
         # Cleaning disk
         filename = 'badblocks_error_logs/' + code + '.txt'
