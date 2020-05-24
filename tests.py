@@ -130,8 +130,8 @@ class Test_Turbofresa:
 
         print('')
 
-        smartctl_path = os.getcwd() + "/smartctl_test"
-        filegen = os.getcwd() + "/smartctl_filegen.sh"
+        smartctl_path = os.path.join(os.getcwd(), "/smartctl_test")
+        filegen = os.path.join(os.getcwd(), "/smartctl_filegen.sh")
         return_code = sp.run(["sudo", "-S", filegen, smartctl_path]).returncode
         assert (return_code == 0), 'Error during disk detection'
         sp.run(['sudo', '-S', 'rm', '-rf', smartctl_path])

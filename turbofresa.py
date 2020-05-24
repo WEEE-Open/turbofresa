@@ -130,7 +130,7 @@ class Task(Process):
         code = self.disk['code'][0]
         mount_point = self.disk['mount_point']
         filename = 'badblocks_error_logs/' + code + '.txt'
-        process = sp.Popen(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', filename, "/dev/"+mount_point])
+        process = sp.Popen(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', filename, os.path.join("/dev", mount_point)])
         process.communicate()
         exit_code = process.returncode
 
