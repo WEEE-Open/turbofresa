@@ -129,6 +129,16 @@ class Task(Process):
         """
         code = self.disk['code'][0]
         mount_point = self.disk['mount_point']
+
+        # Unmounting disk
+        output = sp.check_output(["lsblk", "-ln", "-o", "NAME,MOUNTPOINT", "|", "grep", mount_point]).decode(sys.stdout.encoding)
+        for line in output.splitlines():
+            line = line.split()
+            if len(line) > 1:
+                sp.run(["umount", os.path.join("/dev", mount_point)])
+                break
+
+        # Cleaning disk
         filename = 'badblocks_error_logs/' + code + '.txt'
         process = sp.Popen(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', filename, os.path.join("/dev", mount_point)])
         process.communicate()
@@ -138,8 +148,6 @@ class Task(Process):
         if not quiet:
             print("Ended cleaning /dev/" + mount_point)
 
-        # result = os.popen('cat %s' % self.disk.code).read()
-        # if result == "":
         if exit_code == 0:
             os.remove(filename)
             return True
