@@ -62,7 +62,7 @@ def ignore_sys_disks() -> list:
     :return: Full list of ignored disks (system + user specified)
     """
 
-    critical = [
+    criticals = [
         "/boot",
         "/home",
         "/etc",
@@ -71,23 +71,23 @@ def ignore_sys_disks() -> list:
         "/root",
         "/opt",
         "/usr",
-        "/var"
+        "/var",
+        "swap"
     ]
 
-    output = sp.check_output(["sudo", "-S", "df", "--output=source,target"]).decode(sys.stdout.encoding)
+    output = sp.check_output(["lsblk", "-ln", "-o", "NAME,MOUNTPOINT"]).decode(sys.stdout.encoding)
 
     result = []
     for line in output.splitlines():
-        source = line.split()[0]
-        target = line.split()[1]
-
-        if "/dev/sd" in source:
-            for partition in critical:
-                if partition in target or target == "/":
-                    disk = source.split("/dev/")[1]
-                    disk = ''.join(c for c in disk if not c.isdigit())
+        line = line.split()
+        if len(line) > 1:
+            mount_point = line[0]
+            partition = line[1]
+            for critical in criticals:
+                if critical in partition or partition == "/":
+                    disk = ''.join(c for c in mount_point if not c.isdigit())
                     if disk not in result:
-                        print(f'The partition "{target}" has been detected in "{source}", '
+                        print(f'The partition "{partition}" has been detected in "/dev/{mount_point}", '
                               f'the disk "{disk}" will be ignored')
                         result.append(disk)
                     break
@@ -129,8 +129,18 @@ class Task(Process):
         """
         code = self.disk['code'][0]
         mount_point = self.disk['mount_point']
+
+        # Unmounting disk
+        output = sp.check_output(["lsblk", "-ln", "-o", "NAME,MOUNTPOINT"]).decode(sys.stdout.encoding)
+        for line in output.splitlines():
+            if line.startswith(mount_point):
+                line = line.split()
+                if len(line) > 1:
+                    sp.run(["sudo", "umount", os.path.join("/dev", line[0])])
+
+        # Cleaning disk
         filename = 'badblocks_error_logs/' + code + '.txt'
-        process = sp.Popen(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', filename, "/dev/"+mount_point])
+        process = sp.Popen(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', filename, os.path.join("/dev", mount_point)])
         process.communicate()
         exit_code = process.returncode
 
@@ -138,8 +148,6 @@ class Task(Process):
         if not quiet:
             print("Ended cleaning /dev/" + mount_point)
 
-        # result = os.popen('cat %s' % self.disk.code).read()
-        # if result == "":
         if exit_code == 0:
             os.remove(filename)
             return True

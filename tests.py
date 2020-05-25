@@ -42,12 +42,14 @@ class Test_Tarallo:
         load_dotenv()
         tarallo_url = os.getenv("TARALLO_URL")
         tarallo_token = os.getenv("TARALLO_TOKEN")
+
         try:
             cls.tarallo_instance = Tarallo(tarallo_url, tarallo_token)
+            status = cls.tarallo_instance.status()
         except:
             cls.connected = False
         else:
-            if cls.tarallo_instance.status() == 200:
+            if status == 200:
                 cls.connected = True
             else:
                 cls.connected = False
@@ -130,8 +132,8 @@ class Test_Turbofresa:
 
         print('')
 
-        smartctl_path = os.getcwd() + "/smartctl_test"
-        filegen = os.getcwd() + "/smartctl_filegen.sh"
+        smartctl_path = os.path.join(os.getcwd(), "smartctl_test")
+        filegen = os.path.join(os.getcwd(), "smartctl_filegen.sh")
         return_code = sp.run(["sudo", "-S", filegen, smartctl_path]).returncode
         assert (return_code == 0), 'Error during disk detection'
         sp.run(['sudo', '-S', 'rm', '-rf', smartctl_path])
@@ -140,13 +142,10 @@ class Test_Turbofresa:
     def test_parser(self):
         import sys
         connected = set()
-        output = sp.check_output(["sudo", "-S", "df", "--output=source"]).decode(sys.stdout.encoding)
+        output = sp.check_output(["lsblk", "-nd", "-o", "NAME"]).decode(sys.stdout.encoding)
 
         for line in output.splitlines():
-            if "/dev/" in line:
-                disk = line.split("/dev/")[1]
-                disk = ''.join(c for c in disk if not c.isdigit())
-                connected.add(disk)
+            connected.add(line)
 
         disks = parse_disks(interactive=False, usbdebug=True)
         assert len(connected) == len(disks)

@@ -62,9 +62,9 @@ def parse_disks(interactive: bool = False, ignore: list = [], usbdebug: bool = F
     """
 
     disks = []
-    smartctl_path = os.getcwd() + "/smartctl"
+    smartctl_path = os.path.join(os.getcwd(), "smartctl")
 
-    filegen = os.getcwd() + "/smartctl_filegen.sh"
+    filegen = os.path.join(os.getcwd(), "smartctl_filegen.sh")
     return_code = sp.run(["sudo", "-S", filegen, smartctl_path]).returncode
     assert (return_code == 0), 'Error during disk detection'
 
@@ -81,12 +81,12 @@ def parse_disks(interactive: bool = False, ignore: list = [], usbdebug: bool = F
             if ignored is True:
                 if interactive is True:
                     print("Disk mounted at /dev/"+mount_point+" ignored")
-                os.remove(smartctl_path+"/"+filename)
+                os.remove(os.path.join(smartctl_path, filename))
                 continue
 
             # File reading
             try:
-                with open(smartctl_path + "/" + filename, 'r') as f:
+                with open(os.path.join(smartctl_path, filename), 'r') as f:
                     output = f.read()
             except FileNotFoundError:
                 raise InputFileNotFoundError(smartctl_path)
@@ -105,8 +105,8 @@ def parse_disks(interactive: bool = False, ignore: list = [], usbdebug: bool = F
 
             disk.dev = filename.split("smartctl-dev-")[1].split(".txt")[0]
 
-            old_filename = "smartctl/" + filename
-            new_filename = "smartctl/" + disk.serial_number + ".txt"
+            old_filename = os.path.join("smartctl/", filename)
+            new_filename = os.path.join("smartctl/", disk.serial_number) + ".txt"
             os.rename(old_filename, new_filename)
 
             disks.append(disk)
