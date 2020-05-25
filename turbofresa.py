@@ -136,8 +136,7 @@ class Task(Process):
             if line.startswith(mount_point):
                 line = line.split()
                 if len(line) > 1:
-                    sp.run(["sudo", "umount", os.path.join("/dev", mount_point)])
-                    break
+                    sp.run(["sudo", "umount", os.path.join("/dev", line[0])])
 
         # Cleaning disk
         filename = 'badblocks_error_logs/' + code + '.txt'
