@@ -3,6 +3,19 @@ from pytarallo import Tarallo, Errors, Item
 class TaralloInterface:
     instance = None
 
+    @staticmethod
+    def connect(url: str, token: str):
+        interface = TaralloInterface()
+
+        print("Trying to connect to the T.A.R.A.L.L.O. database")
+        try:
+            interface.instance = Tarallo.Tarallo(url, token)
+        except:
+            print('Failed to connect to the database')
+            return None
+        print("Connection successful!")
+        return interface
+
     def add_disk(self, disk: dict) -> bool:
         """
         Adds disk to Tarallo database
