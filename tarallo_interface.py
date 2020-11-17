@@ -1,20 +1,23 @@
 from pytarallo import Tarallo, Errors, Item
 
-class TaralloInterface:
-    instance = None
 
-    @staticmethod
-    def connect(url: str, token: str):
-        interface = TaralloInterface()
+class TaralloInterface:
+    def __init__(self, instance=None):
+        self.instance = instance
+
+    def connect(self, url: str, token: str):
+        if self.instance is not None:
+            print("Already connected to a T.A.R.A.L.L.O. instance")
+            return False
 
         print("Trying to connect to the T.A.R.A.L.L.O. database")
         try:
-            interface.instance = Tarallo.Tarallo(url, token)
+            self.instance = Tarallo.Tarallo(url, token)
         except:
             print('Failed to connect to the database')
-            return None
-        print("Connection successful!")
-        return interface
+            return False
+        print("Successfully connected to the database")
+        return True
 
     def add_disk(self, disk: dict) -> bool:
         """
@@ -25,7 +28,7 @@ class TaralloInterface:
             False if there were multiple instances of it in the database
         """
 
-        if not self.check_on_tarallo(disk):
+        if not self.check_duplicate(disk):
             return False
 
         print("Adding disk to the database")
@@ -46,10 +49,11 @@ class TaralloInterface:
         print("Disk code on the Database: " + self.instance.get_codes_by_feature('sn', disk['sn'])[0])
         return True
 
-    def check_on_tarallo(self, disk: dict) -> bool:
+    def check_duplicate(self, disk: dict) -> bool:
         """
-        Verify if there's a disk that might conflict
-        with what we want to insert into the TARALLO
+        Verify if there's a disk that might conflict with what we want to insert into the TARALLO
+        :param disk: the disk that might give a conflict
+        :return: true if it's safe to add/update the disk, false otherwise
         """
 
         print("\nSearching the T.A.R.A.L.L.O. databse for disk with serial number {}".format(disk['sn']))
