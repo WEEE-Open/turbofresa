@@ -82,3 +82,7 @@ class TaralloInterface:
         elif len(disk_code) == 0:
             print("No corresponding disk in the database")
             return True
+
+    def get_instance(self):
+        """Returns an instance of the tarallo connection if interested in acting on that manually"""
+        return self.instance
