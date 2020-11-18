@@ -18,6 +18,8 @@ class Test_Tarallo:
 
     @classmethod
     def setup_class(cls):
+
+        # Dummy disk used throughout all the tests
         cls.dummy_disk = {
             'brand': 'PYTHON_TEST',
             'capacity-byte': 1,
@@ -29,6 +31,7 @@ class Test_Tarallo:
             'type': 'ssd',
         }
 
+        # Load url and token from env
         load_dotenv()
         tarallo_url = os.getenv("TARALLO_URL")
         tarallo_token = os.getenv("TARALLO_TOKEN")
@@ -51,33 +54,34 @@ class Test_Tarallo:
 
     def setup(self):
         if not self.connected:
+            # Skip the test if we're not connected to TARALLO
             raise SkipTest("Not connected to TARALLO")
         else:
+            # Remove all possible duplicates of the dummy
             codes = self.tarallo_instance.get_codes_by_feature('sn', self.dummy_disk['sn'])
-            if len(codes) > 1:
-                for code in codes:
-                    self.tarallo_instance.remove_item(code)
-            elif len(codes) == 1:
-                self.tarallo_instance.remove_item(codes[0])
+            for code in codes:
+                self.tarallo_instance.remove_item(code)
 
     def test_add_disk(self):
         """Try adding disk to TARALLO"""
 
         disk = self.dummy_disk
 
-        assert turbofresa.add_to_tarallo(self.tarallo_instance, disk) is True
+        # Verify that we don't have any problem adding the disk
+        assert self.tarallo_interface.add_disk(disk) is True
 
+        # Verify that one and only one disk is being added
         disk_code = self.tarallo_instance.get_codes_by_feature('sn', disk['sn'])
         assert len(disk_code) == 1
 
-    def test_add_duplicate(self):
+    def test_add_duplicate_no_conflict(self):
         """Try to add a non-conflicting duplicate"""
         disk = self.dummy_disk
 
+        # Manually add the dummy through pytarallo
         item = Item()
         item.features = disk
         item.location = 'Polito'
-
         try:
             self.tarallo_instance.add_item(item=item)
             print("Item inserted successfully")
@@ -85,15 +89,19 @@ class Test_Tarallo:
             print("Item not inserted")
             response = self.tarallo_instance.response
             print("HTTP status code:", response.status_code, "\n" + response.json()['message'])
-            raise AssertionError("Failed to manually add disk to TARALLO")
+            raise AssertionError("Failed to manually add disk through pytarallo")
 
-        assert turbofresa.add_to_tarallo(self.tarallo_instance, disk) is True, "Failed to add disk through" \
-                                                                               "TURBOFRESA"
+        # Verify that check_duplicate doesn't detect a conflicting entry
+        assert self.tarallo_interface.check_duplicate(disk) is True, "TaralloInterface is detecting a duplicate"
 
+        # Try to add the duplicate through TaralloInterface
+        assert self.tarallo_interface.add_disk(disk) is True, "Failed to add disk through TaralloInterface"
+
+        # Verify there's only one copy of the disk on TARALLO
         disk_code = self.tarallo_instance.get_codes_by_feature('sn', disk['sn'])
         assert len(disk_code) == 1, "Disk added by error"
 
-    def test_add_conflicting(self):
+    def test_add_duplicate_conflict(self):
         """Try to add a conflicting duplicate"""
 
         disk = self.dummy_disk
@@ -114,15 +122,21 @@ class Test_Tarallo:
             print("HTTP status code:", response.status_code, "\n" + response.json()['message'])
             raise AssertionError("Failed to manually add disk to TARALLO")
 
-        assert turbofresa.add_to_tarallo(self.tarallo_instance, disk) is False
+        # Check if conflict is detected
+        assert self.tarallo_interface.check_duplicate(disk) is False, "TaralloInterface didn't detect the conflict"
+
+        # Check if TaralloInterface refuses to add the disk
+        assert self.tarallo_interface.add_disk(disk) is False, "TaralloInterface added the disk anyway"
 
     def test_update_broken(self):
         """Update TARALLO with broken disk"""
 
         disk = dict(self.dummy_disk)
-        turbofresa.add_to_tarallo(self.tarallo_instance, disk)
+        self.tarallo_interface.add_disk(disk)
         disk['smart-data'] = SMART.fail.value
-        assert turbofresa.add_to_tarallo_broken(self.tarallo_instance, disk) is True
+
+        # Verify the disk has been added even if duplicate
+        assert self.tarallo_interface.add_disk(disk) is True
 
 
 class Test_Turbofresa:
