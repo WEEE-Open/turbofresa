@@ -78,6 +78,9 @@ class Test_Tarallo:
         """Try to add a non-conflicting duplicate"""
         disk = self.dummy_disk
 
+        # Check that there are no duplicates
+        assert self.tarallo_interface.check_duplicate(disk) == 0, "TaralloInterface is detecting a duplicate"
+
         # Manually add the dummy through pytarallo
         item = Item()
         item.features = disk
@@ -92,7 +95,7 @@ class Test_Tarallo:
             raise AssertionError("Failed to manually add disk through pytarallo")
 
         # Verify that check_duplicate doesn't detect a conflicting entry
-        assert self.tarallo_interface.check_duplicate(disk) is True, "TaralloInterface is detecting a duplicate"
+        assert self.tarallo_interface.check_duplicate(disk) == 1, "TaralloInterface is detecting a conflicting duplicate"
 
         # Try to add the duplicate through TaralloInterface
         assert self.tarallo_interface.add_disk(disk) is True, "Failed to add disk through TaralloInterface"
@@ -123,7 +126,7 @@ class Test_Tarallo:
             raise AssertionError("Failed to manually add disk to TARALLO")
 
         # Check if conflict is detected
-        assert self.tarallo_interface.check_duplicate(disk) is False, "TaralloInterface didn't detect the conflict"
+        assert self.tarallo_interface.check_duplicate(disk) == -1, "TaralloInterface didn't detect the conflict"
 
         # Check if TaralloInterface refuses to add the disk
         assert self.tarallo_interface.add_disk(disk) is False, "TaralloInterface added the disk anyway"
