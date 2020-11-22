@@ -36,6 +36,7 @@ __version__ = '1.3'
 # Run parameters
 quiet = None
 simulate = None
+can_connect = None
 tarallo_instance = None
 
 
@@ -127,7 +128,11 @@ class Task(Process):
         and the broken hard drive is reported into the log file and informations
         are written to the T.A.R.A.L.L.O. database.
         """
-        code = self.disk['code'][0]
+
+        global tarallo_instance
+
+        if tarallo_instance is not None:
+            code = self.disk['code'][0]
         mount_point = self.disk['mount_point']
 
         # Unmounting disk
@@ -139,7 +144,10 @@ class Task(Process):
                     sp.run(["sudo", "umount", os.path.join("/dev", line[0])])
 
         # Cleaning disk
-        filename = 'badblocks_error_logs/' + code + '.txt'
+        if tarallo_instance is not None:
+            filename = 'badblocks_error_logs/' + code + '.txt'
+        else:
+            filename = 'badblocks_error_logs/' + disk['sn'] + '.txt'
         process = sp.Popen(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', filename, os.path.join("/dev", mount_point)])
         process.communicate()
         exit_code = process.returncode
@@ -154,7 +162,6 @@ class Task(Process):
         else:
             # TODO: Write on tarallo that the hard drive is broken
             # Write it in the turbofresa log file as well
-            global tarallo_instance
             self.disk['features']['smart-data'] = smartctl_parser.SMART.fail
             tarallo_instance.add_disk(self.disk['features'])
             return False
@@ -165,6 +172,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--shutdown', action='store_true', help='Shutdown the machine when everything is done.')
     parser.add_argument('-q', '--quiet', action='store_true', help='Run in background and suppress stdout.')
     parser.add_argument('-d', '--dry', action='store_true', help='Launch simulation.')
+    parser.add_argument('--no-tarallo', action='store_false', help="Don't add disks to the T.A.R.A.L.L.O. database.", dest='can_connect')
     parser.add_argument('--usb', action='store_true', help='Allow cleaning of usb drives (DEBUG ONLY!!!)')
     parser.add_argument('--version', '-V', action='version', version='%(prog)s v.' + __version__)
     parser.set_defaults(shutdown=False)
@@ -175,6 +183,7 @@ if __name__ == '__main__':
 
     quiet = args.quiet
     simulate = args.dry
+    can_connect = args.can_connect
 
     print("The program will completely wipe any disk outside system ones connected to the current machine")
 
@@ -195,25 +204,28 @@ if __name__ == '__main__':
     ask_confirm(disks)
 
     # Tarallo connection
-    if not quiet:
-        print('\n\n===> Connecting to T.A.R.A.L.L.O. database')
-    load_dotenv()
-    tarallo_instance = TaralloInterface()
-    if not tarallo_instance.connect(os.getenv("TARALLO_URL"), os.getenv("TARALLO_TOKEN")):
-        print("Continuing without T.A.R.A.L.L.O. connection")
+    if can_connect:
+        if not quiet:
+            print('\n\n===> Connecting to T.A.R.A.L.L.O. database')
+        load_dotenv()
+        tarallo_instance = TaralloInterface()
+        if not tarallo_instance.connect(os.getenv("TARALLO_URL"), os.getenv("TARALLO_TOKEN")):
+            print("Continuing without T.A.R.A.L.L.O. connection")
+            tarallo_instance = None
 
     # Adding disks to clean in queue and adding them to Tarallo if not present
-    if not quiet:
+    if not quiet and tarallo_instance is not None:
         print('\n\n===> Adding disks to T.A.R.A.L.L.O.')
 
     for d in disks:
         disk = d['features']
 
-        if tarallo_instance.add_disk(disk) is False:
-            print("Something went wrong with Disk addition to database, skipping to the next one")
-            continue
+        if tarallo_instance is not None:
+            if tarallo_instance.add_disk(disk) is False:
+                print("Something went wrong with Disk addition to database, skipping to the next one")
+                continue
+            d['code'] = tarallo_instance.get_instance().get_codes_by_feature('sn', disk['sn'])
 
-        d['code'] = tarallo_instance.get_codes_by_feature('sn', disk['sn'])
         tasks.append(Task(d))
 
     # Time to TURBOFRESA
@@ -237,7 +249,7 @@ if __name__ == '__main__':
             if not quiet:
                 print("Ended cleaning /dev/" + t.disk['mount_point'])
 
-    if simulate:
+    if simulate and tarallo_instance is not None:
         for d in disks:
             tarallo_instance.remove_item(d['code'][0])
 
