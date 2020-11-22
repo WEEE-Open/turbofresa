@@ -24,11 +24,14 @@ class TaralloInterface:
         Adds disk to Tarallo database
         :param instance: Tarallo instance where to add the disk
         :param disk: disk to add to the database
-        :return: True if added successfully or it was already present,
-            False if there were multiple instances of it in the database
+        :return: True if added/updated successfully, False otherwise
         """
 
-        if not self.check_duplicate(disk):
+        #TODO: modify it to an 'add or update' version
+
+        # Don't do any operation if there are conflicting entries in the db
+        duplicates = self.check_duplicate(disk)
+        if duplicates == -1:
             return False
 
         print("Adding disk to the database")
@@ -37,7 +40,11 @@ class TaralloInterface:
         item.location = 'Polito'  # TODO: maybe it can be set from config or a better default should be picked
 
         try:
-            self.instance.add_item(item=item)
+            if duplicates == 0:
+                self.instance.add_item(item=item)
+            elif duplicates == 1:
+                code = self.instance.get_codes_by_feature('sn', disk['sn'])[0]
+                self.instance.update_features(code, disk)
             print("Item inserted successfully")
         except Errors.ValidationError:
             print("Item not inserted")
@@ -49,11 +56,13 @@ class TaralloInterface:
         print("Disk code on the Database: " + self.instance.get_codes_by_feature('sn', disk['sn'])[0])
         return True
 
-    def check_duplicate(self, disk: dict) -> bool:
+    def check_duplicate(self, disk: dict) -> int:
         """
         Verify if there's a disk that might conflict with what we want to insert into the TARALLO
         :param disk: the disk that might give a conflict
-        :return: true if it's safe to add/update the disk, false otherwise
+        :return: 0 if no duplicates are detected
+        :return: 1 if a non-conflicting duplicate is found
+        :return: -1 if a conflicting duplicate is found
         """
 
         print("\nSearching the T.A.R.A.L.L.O. databse for disk with serial number {}".format(disk['sn']))
@@ -63,7 +72,7 @@ class TaralloInterface:
         if len(disk_code) > 1:
             print("Multiple disks in the database corresponding to the serial number: " + disk['sn'])
             print("Won't proceed until conflict is solved")
-            return False
+            return -1
         # if there is exactly one disk, check if we're simply changing the status or there's a conflict
         elif len(disk_code) == 1:
             print(f"Disk with serial number {disk['sn']} already present in the database"
@@ -76,12 +85,12 @@ class TaralloInterface:
                 if value != disk[key]:
                     print("There's a conflict in the database for this disk")
                     print("Won't proceed until conflict is solved")
-                    return False
+                    return -1
             print("The entry doesn't conflict with the current disk, safe to add")
-            return True
+            return 1
         elif len(disk_code) == 0:
             print("No corresponding disk in the database")
-            return True
+            return 0
 
     def get_instance(self):
         """Returns an instance of the tarallo connection if interested in acting on that manually"""
