@@ -24,11 +24,11 @@
 
 import os, sys
 import logging  # TODO: Add log messages
+from tarallo_interface import TaralloInterface
 from multiprocessing import Process
 import subprocess as sp
 import argparse
 import smartctl_parser
-from pytarallo import Tarallo, Errors, Item
 from dotenv import load_dotenv
 
 __version__ = '1.3'
@@ -156,80 +156,8 @@ class Task(Process):
             # Write it in the turbofresa log file as well
             global tarallo_instance
             self.disk['features']['smart-data'] = smartctl_parser.SMART.fail
-            add_to_tarallo_broken(tarallo_instance, self.disk['features'])
+            tarallo_instance.add_disk(self.disk['features'])
             return False
-
-
-def add_to_tarallo(instance: Tarallo.Tarallo, disk: dict) -> bool:
-    """
-    Adds disk to Tarallo database
-    :param instance: Tarallo instance where to add the disk
-    :param disk: disk to add to the database
-    :return: True if added successfully or it was already present,
-        False if there were multiple instances of it in the database
-    """
-
-    print("\nSearching the T.A.R.A.L.L.O. databse for disk with serial number {}".format(disk['sn']))
-    disk_code = instance.get_codes_by_feature('sn', disk['sn'])
-
-    if len(disk_code) > 1:
-        print("Multiple disks in the database corresponding to the serial number: " + disk['sn'])
-        print("Won't proceed until conflict is solved")
-        return False
-    elif len(disk_code) == 1:
-        print(f"Disk with serial number {disk['sn']} already present in the database"
-              f"with the code {disk_code[0]}")
-        item = instance.get_item(disk_code[0])
-        for key, value in item.features.items():
-            if key == 'smart-data' or key == 'smart-data-long':
-                continue
-            if value != disk[key]:
-                print("There's a conflict in the database for this disk")
-                print("Won't proceed until conflict is solved")
-                return False
-        print("The entry doesn't conflict with the current disk, proceeding anyway")
-        return True
-    elif len(disk_code) == 0:
-        print("No corresponding disk in the database")
-
-    print("Adding disk to the database")
-    item = Item.Item()
-    item.features = disk
-    item.location = 'Polito'  # TODO: maybe it can be set from config or a better default should be picked
-
-    try:
-        instance.add_item(item=item)
-        print("Item inserted successfully")
-    except Errors.ValidationError:
-        print("Item not inserted")
-        response = instance.response
-        print("HTTP status code:", response.status_code, "\n" + response.json()['message'])
-        return False
-
-    print("Successfully added the disk")
-    print("Disk code on the Database: " + instance.get_codes_by_feature('sn', disk['sn'])[0])
-    return True
-
-
-def add_to_tarallo_broken(instance: Tarallo.Tarallo, disk: dict) -> bool:
-    if disk['smart-data'] != smartctl_parser.SMART.fail.value:
-        print("Not a broken disk")
-        return False
-
-    if add_to_tarallo(instance, disk) is False:
-        print("Failed to update informations")
-        return False
-
-    disk_code = instance.get_codes_by_feature('sn', disk['sn'])
-    try:
-        instance.update_features(disk_code[0], disk)
-    except Errors.ValidationError:
-        print("Failed to update informations")
-        response = instance.response
-        print("HTTP status code:", response.status_code, "\n" + response.json()['message'])
-        return False
-
-    return True
 
 
 if __name__ == '__main__':
@@ -250,7 +178,7 @@ if __name__ == '__main__':
 
     print("The program will completely wipe any disk outside system ones connected to the current machine")
 
-    # Preliminary operations
+    # Checking disks to ignore
     if not quiet:
         print('\n\n===> Checking system disks')
     ignored = ignore_sys_disks()
@@ -270,12 +198,9 @@ if __name__ == '__main__':
     if not quiet:
         print('\n\n===> Connecting to T.A.R.A.L.L.O. database')
     load_dotenv()
-    try:
-        tarallo_instance = Tarallo.Tarallo(os.getenv("TARALLO_URL"), os.getenv("TARALLO_TOKEN"))
-    except:
-        print('Failed to connect to the database')
-        exit(1)
-    print('Successfully connected to the database')
+    tarallo_instance = TaralloInterface()
+    if not tarallo_instance.connect(os.getenv("TARALLO_URL"), os.getenv("TARALLO_TOKEN")):
+        print("Continuing without T.A.R.A.L.L.O. connection")
 
     # Adding disks to clean in queue and adding them to Tarallo if not present
     if not quiet:
@@ -284,7 +209,7 @@ if __name__ == '__main__':
     for d in disks:
         disk = d['features']
 
-        if add_to_tarallo(tarallo_instance, disk) is False:
+        if tarallo_instance.add_disk(disk) is False:
             print("Something went wrong with Disk addition to database, skipping to the next one")
             continue
 
