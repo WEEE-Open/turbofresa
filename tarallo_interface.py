@@ -21,13 +21,10 @@ class TaralloInterface:
 
     def add_disk(self, disk: dict) -> bool:
         """
-        Adds disk to Tarallo database
-        :param instance: Tarallo instance where to add the disk
+        Adds or updates disk to Tarallo database
         :param disk: disk to add to the database
         :return: True if added/updated successfully, False otherwise
         """
-
-        #TODO: modify it to an 'add or update' version
 
         # Don't do any operation if there are conflicting entries in the db
         duplicates = self.check_duplicate(disk)
@@ -39,14 +36,18 @@ class TaralloInterface:
         item.features = disk
         item.location = 'Polito'  # TODO: maybe it can be set from config or a better default should be picked
 
+        # Catch any errors thrown by the TARALLO in case some disaster happens
         try:
+            # Base on the presence of duplicates, add or update
             if duplicates == 0:
                 self.instance.add_item(item=item)
             elif duplicates == 1:
+                # TODO: to avoid checking twice the database for the disk we could return the code from check_duplicates
                 code = self.instance.get_codes_by_feature('sn', disk['sn'])[0]
                 self.instance.update_features(code, disk)
             print("Item inserted successfully")
         except Errors.ValidationError:
+            # Simply return False and don't crash if there's some error
             print("Item not inserted")
             response = self.instance.response
             print("HTTP status code:", response.status_code, "\n" + response.json()['message'])
