@@ -251,7 +251,7 @@ if __name__ == '__main__':
 
     if simulate and tarallo_instance is not None:
         for d in disks:
-            tarallo_instance.remove_item(d['code'][0])
+            tarallo_instance.get_instance().remove_item(d['code'][0])
 
     if args.shutdown is True:
         if not simulate:
