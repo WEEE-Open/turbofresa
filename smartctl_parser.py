@@ -268,6 +268,11 @@ def tarallo_conversion(disks: list):
     """
     result = []
     for disk in disks:
+        if disk.smart_data.value == "ok":
+            working = "yes"
+        else:
+            working = "no"
+
         if disk.type == "ssd":  # ssd
             this_disk = {
                 "type": "ssd",
@@ -277,7 +282,8 @@ def tarallo_conversion(disks: list):
                 "wwn": disk.wwn,
                 "sn": disk.serial_number,
                 "capacity-byte": disk.capacity,
-                "smart-data": disk.smart_data.value
+                "smart-data": disk.smart_data.value,
+                "working": working
             }
             if disk.smart_data_long is not SMART.not_available:
                 this_disk['notes'] = disk.smart_data_long
@@ -293,7 +299,8 @@ def tarallo_conversion(disks: list):
                 # tell some functions how to convert it to human-readable format
                 "capacity-decibyte": disk.capacity,
                 "spin-rate-rpm": disk.rotation_rate,
-                "smart-data": disk.smart_data.value
+                "smart-data": disk.smart_data.value,
+                "working": working
             }
         if disk.form_factor is not None:
             this_disk["hdd-form-factor"] = disk.form_factor
