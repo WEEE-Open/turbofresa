@@ -63,6 +63,8 @@ def parse_disks(interactive: bool = False, ignore: list = [], usbdebug: bool = F
 
     disks = []
     smartctl_path = os.path.join(os.getcwd(), "smartctl")
+    if not os.path.exists(smartctl_path):
+        os.makedirs(smartctl_path)
 
     filegen = os.path.join(os.getcwd(), "smartctl_filegen.sh")
     return_code = sp.run(["sudo", "-S", filegen, smartctl_path]).returncode
