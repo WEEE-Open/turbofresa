@@ -133,6 +133,9 @@ class Task(Process):
 
         if tarallo_instance is not None:
             code = self.disk['code'][0]
+            filename = 'badblocks_error_logs/' + code + '.txt'
+        else:
+            filename = 'badblocks_error_logs/' + disk['sn'] + '.txt'
         mount_point = self.disk['mount_point']
 
         # Unmounting disk
@@ -144,27 +147,30 @@ class Task(Process):
                     sp.run(["sudo", "umount", os.path.join("/dev", line[0])])
 
         # Cleaning disk
-        if tarallo_instance is not None:
-            filename = 'badblocks_error_logs/' + code + '.txt'
-        else:
-            filename = 'badblocks_error_logs/' + disk['sn'] + '.txt'
-        process = sp.Popen(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', filename, os.path.join("/dev", mount_point)])
-        process.communicate()
-        exit_code = process.returncode
+        with sp.Popen(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', filename, os.path.join("/dev", mount_point)]) as p:
+            success = False
+            try:
+                p.wait(timeout=10 * 60)  # TODO: calculate timeout based on disk size, leave 10 mins as placeholder
+                if p.returncode == 0:
+                    success = True
 
-        global quiet
-        if not quiet:
-            print("Ended cleaning /dev/" + mount_point)
+                global quiet
+                if not quiet:
+                    print("Ended cleaning " + os.path.join("/dev/", mount_point))
 
-        if exit_code == 0:
-            os.remove(filename)
-            return True
-        else:
-            # TODO: Write on tarallo that the hard drive is broken
-            # Write it in the turbofresa log file as well
-            self.disk['features']['smart-data'] = smartctl_parser.SMART.fail
-            tarallo_instance.add_disk(self.disk['features'])
-            return False
+            except sp.TimeoutExpired:
+                success = False
+                p.kill()
+            finally:
+                if success is True:
+                    os.remove(filename)
+                    return True
+                else:
+                    # TODO: Write on tarallo that the hard drive is broken
+                    # Write it in the turbofresa log file as well
+                    self.disk['features']['smart-data'] = smartctl_parser.SMART.fail
+                    tarallo_instance.add_disk(self.disk['features'])
+                    return False
 
 
 if __name__ == '__main__':
