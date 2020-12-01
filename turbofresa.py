@@ -162,17 +162,18 @@ class Task(Process):
                 success = False
                 p.kill()
             finally:
+                features = self.disk['features']
                 if success is True:
                     os.remove(filename)
-                    self.disk['features']['data-erased'] = 'yes'
-                    self.disk['features']['surface-scan'] = 'pass'
-                    self.disk['features']['smart-data'] = smartctl_parser.SMART.working
+                    features['data-erased'] = 'yes'
+                    features['surface-scan'] = 'pass'
+                    features['smart-data'] = smartctl_parser.SMART.working
                 else:
-                    self.disk['features']['smart-data'] = smartctl_parser.SMART.fail
-                    self.disk['features']['working'] = 'unknown'
+                    features['smart-data'] = smartctl_parser.SMART.fail
+                    features['working'] = 'unknown'
 
                 if tarallo_instance is not None:
-                    tarallo_instance.add_disk(self.disk['features'])
+                    tarallo_instance.add_disk(features)
 
                 return success
 
