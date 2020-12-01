@@ -164,13 +164,17 @@ class Task(Process):
             finally:
                 if success is True:
                     os.remove(filename)
-                    return True
+                    self.disk['features']['data-erased'] = 'yes'
+                    self.disk['features']['surface-scan'] = 'pass'
+                    self.disk['features']['smart-data'] = smartctl_parser.SMART.working
                 else:
-                    # TODO: Write on tarallo that the hard drive is broken
-                    # Write it in the turbofresa log file as well
                     self.disk['features']['smart-data'] = smartctl_parser.SMART.fail
+                    self.disk['features']['working'] = 'unknown'
+
+                if tarallo_instance is not None:
                     tarallo_instance.add_disk(self.disk['features'])
-                    return False
+
+                return success
 
 
 if __name__ == '__main__':
