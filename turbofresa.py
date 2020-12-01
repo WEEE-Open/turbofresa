@@ -229,19 +229,23 @@ if __name__ == '__main__':
         tasks.append(Task(d))
 
     # Time to TURBOFRESA
+
     if not quiet:
         print("\n\n===> Cleaning disks")
 
+    # Create badblock logs folder if not present
     if not simulate:
         if 'badblocks_error_logs' not in os.listdir(os.getcwd()):
             os.mkdir('badblocks_error_logs')
 
+    # Start all tasks
     for t in tasks:
         if not quiet:
             print("Started cleaning /dev/" + t.disk['mount_point'])
         if not simulate:
             t.start()
 
+    # Wait for threads completition
     for t in tasks:
         if not simulate:
             t.join()
@@ -249,6 +253,7 @@ if __name__ == '__main__':
             if not quiet:
                 print("Ended cleaning /dev/" + t.disk['mount_point'])
 
+    # TODO: evaluate if removing this piece
     if simulate and tarallo_instance is not None:
         for d in disks:
             tarallo_instance.get_instance().remove_item(d['code'][0])
