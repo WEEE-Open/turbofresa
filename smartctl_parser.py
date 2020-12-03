@@ -136,6 +136,19 @@ def dummy_disk():
     return disk
 
 
+def check_complete(disk):
+    """
+    Check if the disk passed contains all the necessary information to be added to TARALLO
+    """
+    essentials = ['smart_data', 'brand', 'model', 'type', 'capacity', 'form_factor', 'port', 'serial_number']
+
+    for ess in essentials:
+        if getattr(disk, ess) == "":
+            return False
+
+    return True
+
+
 def read_smartctl(smartctl_output):
 
     disk = Disk()
