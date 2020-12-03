@@ -1,4 +1,5 @@
 .idea
 venv/
 smartctl
+badblocks_error_logs
 __pycache__
