@@ -147,11 +147,11 @@ class Task(Process):
                     sp.run(["sudo", "umount", os.path.join("/dev", line[0])])
 
         # Cleaning disk
-        with sp.Popen(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', filename, os.path.join("/dev", mount_point)]) as p:
+        with sp.Popen(['sudo', '-S', 'badblocks', '-s', '-w', '-t', '0x00', '-o', filename, os.path.join("/dev", mount_point)]) as p:
             success = False
             try:
                 disk_gb = self.disk['features']['capacity-byte'] / 1024**3
-                mins_per_gb = 1  # TODO: could be set with a config file?
+                mins_per_gb = 2  # TODO: could be set with a config file?
                 timeout = 60 * mins_per_gb * disk_gb
                 p.wait(timeout=timeout)
                 if p.returncode == 0:
