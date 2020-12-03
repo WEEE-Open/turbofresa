@@ -94,16 +94,15 @@ def parse_disks(interactive: bool = False, ignore: list = [], usbdebug: bool = F
                 raise InputFileNotFoundError(smartctl_path)
 
             # Checks if it's a valid disk
-            # If usbdebug is True a dummy disk is created
-            if '=== START OF INFORMATION SECTION ===' not in output:
+            # If usbdebug is True, the disk is filled with dummy informations
+            disk = read_smartctl(output)
+            if not check_complete(disk):
                 if usbdebug is True:
-                    disk = dummy_disk()
+                    disk = dummy_disk(disk)
                 else:
                     if interactive:
                         print(f"{filename} does not contain disk information, was it a USB stick?")
                     continue
-            else:
-                disk = read_smartctl(output)
 
             disk.dev = filename.split("smartctl-dev-")[1].split(".txt")[0]
 
@@ -118,20 +117,29 @@ def parse_disks(interactive: bool = False, ignore: list = [], usbdebug: bool = F
     return []
 
 
-def dummy_disk():
+def dummy_disk(disk=Disk()):
+    """
+    Creates a dummy disk or, if passed, fills a disk with dummy information where needed
+    """
     from random import choice
     from string import digits
 
-    disk = Disk()
+    dummy = Disk()
 
-    disk.smart_data = SMART.working
-    disk.brand = "USB_TEST"
-    disk.model = "TEST"
-    disk.type = "ssd"
-    disk.capacity = 1
-    disk.form_factor = "2.5-7mm"
-    disk.port = PORT.sata
-    disk.serial_number = 'USB' + ''.join(choice(digits) for i in range(6)) # USBxxxxxx where x is a random digit
+    dummy.smart_data = SMART.working
+    dummy.brand = "USB_TEST"
+    dummy.model = "TEST"
+    dummy.type = "ssd"
+    dummy.capacity = 1
+    dummy.form_factor = "2.5-7mm"
+    dummy.port = PORT.sata
+    dummy.serial_number = 'USB' + ''.join(choice(digits) for i in range(6)) # USBxxxxxx where x is a random digit
+
+    for a in dir(dummy):
+        if a.startswith('__') or callable(getattr(dummy, a)):
+            continue
+        if getattr(disk, a) == "":
+            setattr(disk, a, getattr(dummy, a))
 
     return disk
 
