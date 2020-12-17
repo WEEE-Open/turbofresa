@@ -32,14 +32,14 @@ class TaralloInterface:
             return False
 
         print("Adding disk to the database")
-        item = Item.Item()
-        item.features = disk
-        item.location = 'Polito'  # TODO: maybe it can be set from config or a better default should be picked
 
         # Catch any errors thrown by the TARALLO in case some disaster happens
         try:
             # Base on the presence of duplicates, add or update
             if duplicates == 0:
+                item = Item.Item()
+                item.features = disk
+                item.location = 'Polito'  # TODO: maybe it can be set from config or a better default should be picked
                 self.instance.add_item(item=item)
             elif duplicates == 1:
                 # TODO: to avoid checking twice the database for the disk we could return the code from check_duplicates
