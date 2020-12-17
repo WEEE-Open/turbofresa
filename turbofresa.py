@@ -233,6 +233,8 @@ if __name__ == '__main__':
 
     for d in disks:
         disk = d['features']
+        disk['erased'] = None
+        disk['surface-scan'] = None
 
         if tarallo_instance is not None:
             if tarallo_instance.add_disk(disk) is False:
