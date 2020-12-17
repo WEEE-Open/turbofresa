@@ -43,8 +43,7 @@ class TaralloInterface:
                 self.instance.add_item(item=item)
             elif duplicates == 1:
                 # TODO: to avoid checking twice the database for the disk we could return the code from check_duplicates
-                code = self.instance.get_codes_by_feature('sn', disk['sn'])[0]
-                self.instance.update_features(code, disk)
+                self.update_disk(disk)
             print("Item inserted successfully")
         except Errors.ValidationError:
             # Simply return False and don't crash if there's some error
@@ -92,6 +91,20 @@ class TaralloInterface:
         elif len(disk_code) == 0:
             print("No corresponding disk in the database")
             return 0
+
+    def update_disk(self, disk):
+        code = self.instance.get_codes_by_feature('sn', disk['sn'])[0]
+        remote = self.instance.get_item(code).features
+
+        upload = {}
+
+        for feature_to_upload in ['brand', 'model', 'variant', 'capacity-decibyte', 'spin-rate-rpm', 'sn', 'wwn',
+                                  'form-factor-hdd', 'type']:
+            if feature_to_upload not in remote and feature_to_upload in disk:
+                upload[feature_to_upload] += disk[feature_to_upload]
+            if upload:
+                self.instance.update_features(code, upload)
+
 
     def get_instance(self):
         """Returns an instance of the tarallo connection if interested in acting on that manually"""
