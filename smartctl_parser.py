@@ -230,7 +230,7 @@ def read_smartctl(smartctl_output):
                 disk.brand = brand
 
         elif "Serial Number:" in line:
-            disk.serial_number = line.split("Serial Number:")[1].strip()
+            disk.serial_number = normalize_sn(line.split("Serial Number:")[1].strip())
 
         elif "LU WWN Device Id:" in line:
             disk.wwn = line.split("LU WWN Device Id:")[1].strip()
@@ -373,6 +373,13 @@ def remove_prefix(prefix, text):
     if text.startswith(prefix):
         return text[len(prefix):]
     return text
+
+
+def normalize_sn(sn: str) -> str:
+    # TODO: add more normalization criteria
+    sn = sn.replace('wd', '')
+    sn = sn.replace('WD', '')
+    return sn
 
 
 def main():
