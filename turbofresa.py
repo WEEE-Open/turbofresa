@@ -173,7 +173,7 @@ class Task(Process):
                     features['smart-data'] = smartctl_parser.SMART.working
                 else:
                     features['smart-data'] = smartctl_parser.SMART.fail
-                    features['working'] = 'unknown'
+                    features['working'] = 'maybe'
 
                 if tarallo_instance is not None:
                     tarallo_instance.add_disk(features)
