@@ -22,14 +22,13 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 """
 
-import os
-import json
+import os, sys
 import logging  # TODO: Add log messages
+from tarallo_interface import TaralloInterface
 from multiprocessing import Process
 import subprocess as sp
 import argparse
 import smartctl_parser
-from pytarallo import Tarallo
 from dotenv import load_dotenv
 
 __version__ = '1.3'
@@ -37,20 +36,75 @@ __version__ = '1.3'
 # Run parameters
 quiet = None
 simulate = None
+can_connect = None
+tarallo_instance = None
 
 
-def ask_confirm():
-    """
-    Asks the user if (s)he is sure of what (s)he's doing.
-    """
+def ask_confirm(disks: list):
+    print("\nThe following disks are going to be wiped:")
+
+    for d in disks:
+        print("- /dev/" + d['mount_point'])
+
     while True:
-        user_response = input("Are you 100% sure of what you're about to do? [N/y] ")
+        user_response = input("\nAre you 100% sure of what you're about to do? [N/y] ")
         if user_response.lower() == 'y':
             break
         elif user_response.lower() == 'n':
             exit(0)
         else:
             print("Unrecognized response... Asking again nicely.")
+
+
+def ignore_sys_disks() -> list:
+    """
+    Checks which disks have system partitions in them and asks if the user wishes to add
+    other disks to ignored
+    :return: Full list of ignored disks (system + user specified)
+    """
+
+    criticals = [
+        "/boot",
+        "/home",
+        "/etc",
+        "/var",
+        "/lib",
+        "/root",
+        "/opt",
+        "/usr",
+        "/var",
+        "swap"
+    ]
+
+    output = sp.check_output(["lsblk", "-ln", "-o", "NAME,MOUNTPOINT"]).decode(sys.stdout.encoding)
+
+    result = []
+    for line in output.splitlines():
+        line = line.split()
+        if len(line) > 1:
+            mount_point = line[0]
+            partition = line[1]
+            for critical in criticals:
+                if critical in partition or partition == "/":
+                    disk = ''.join(c for c in mount_point if not c.isdigit())
+                    if disk not in result:
+                        print(f'The partition "{partition}" has been detected in "/dev/{mount_point}", '
+                              f'the disk "{disk}" will be ignored')
+                        result.append(disk)
+                    break
+
+    return result
+
+
+def ignore_user_disks() -> list:
+    user_response = input("Do you wish to add more disks to ignore from wiping? [y/N] ")
+    if user_response.lower() == 'y':
+        user_ignored = input("Insert disks to ignore separated by comma (sda,sdb,loop0,etc...): ")
+        if user_ignored:
+            return user_ignored.replace(" ", "").split(",")
+    else:
+        return []
+
 
 class Task(Process):
     """
@@ -60,7 +114,7 @@ class Task(Process):
         """
         :param disk: Disk object
         """
-        super().__init__(self)
+        super().__init__()
         self.disk = disk
 
     def run(self):
@@ -74,15 +128,57 @@ class Task(Process):
         and the broken hard drive is reported into the log file and informations
         are written to the T.A.R.A.L.L.O. database.
         """
-        exit_code = sp.Popen(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', self.disk.code, self.disk.dev]).returncode
-        # result = os.popen('cat %s' % self.disk.code).read()
-        # if result == "":
-        if exit_code != 0:
-            sp.run(['rm', '-f', self.disk.code])
+
+        global tarallo_instance
+
+        if tarallo_instance is not None:
+            code = self.disk['code'][0]
+            filename = 'badblocks_error_logs/' + code + '.txt'
         else:
-            # TODO: Write on tarallo that the hard drive is broken
-            # Write it in the turbofresa log file as well
-            pass
+            filename = 'badblocks_error_logs/' + disk['sn'] + '.txt'
+        mount_point = self.disk['mount_point']
+
+        # Unmounting disk
+        output = sp.check_output(["lsblk", "-ln", "-o", "NAME,MOUNTPOINT"]).decode(sys.stdout.encoding)
+        for line in output.splitlines():
+            if line.startswith(mount_point):
+                line = line.split()
+                if len(line) > 1:
+                    sp.run(["sudo", "umount", os.path.join("/dev", line[0])])
+
+        # Cleaning disk
+        with sp.Popen(['sudo', '-S', 'badblocks', '-s', '-w', '-t', '0x00', '-o', filename, os.path.join("/dev", mount_point)]) as p:
+            success = False
+            try:
+                disk_gb = self.disk['features']['capacity-byte'] / 1024**3
+                mins_per_gb = 2  # TODO: could be set with a config file?
+                timeout = 60 * mins_per_gb * disk_gb
+                p.wait(timeout=timeout)
+                if p.returncode == 0:
+                    success = True
+
+                global quiet
+                if not quiet:
+                    print("Ended cleaning " + os.path.join("/dev/", mount_point))
+
+            except sp.TimeoutExpired:
+                success = False
+                p.kill()
+            finally:
+                features = self.disk['features']
+                if success is True:
+                    os.remove(filename)
+                    features['data-erased'] = 'yes'
+                    features['surface-scan'] = 'pass'
+                    features['smart-data'] = smartctl_parser.SMART.working
+                else:
+                    features['smart-data'] = smartctl_parser.SMART.fail
+                    features['working'] = 'maybe'
+
+                if tarallo_instance is not None:
+                    tarallo_instance.add_disk(features)
+
+                return success
 
 
 if __name__ == '__main__':
@@ -90,51 +186,93 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--shutdown', action='store_true', help='Shutdown the machine when everything is done.')
     parser.add_argument('-q', '--quiet', action='store_true', help='Run in background and suppress stdout.')
     parser.add_argument('-d', '--dry', action='store_true', help='Launch simulation.')
+    parser.add_argument('--no-tarallo', action='store_false', help="Don't add disks to the T.A.R.A.L.L.O. database.", dest='can_connect')
+    parser.add_argument('--usb', action='store_true', help='Allow cleaning of usb drives (DEBUG ONLY!!!)')
     parser.add_argument('--version', '-V', action='version', version='%(prog)s v.' + __version__)
     parser.set_defaults(shutdown=False)
     parser.set_defaults(quiet=False)
     parser.set_defaults(dry=False)
+    parser.set_defaults(usb=False)
     args = parser.parse_args()
+
     quiet = args.quiet
     simulate = args.dry
+    can_connect = args.can_connect
 
-    # ask_confirm()
+    print("The program will completely wipe any disk outside system ones connected to the current machine")
+
+    # Checking disks to ignore
     if not quiet:
-        print("===> Detecting connected hard drives.")
-    disks = smartctl_parser.main()
+        print('\n\n===> Checking system disks')
+    ignored = ignore_sys_disks()
+    ignored = ignored + ignore_user_disks()
+
+    # Disks parsing
+    if not quiet:
+        print("\n\n===> Detecting connected hard drives.")
+    disks = smartctl_parser.parse_disks(interactive=not quiet, usbdebug=args.usb, ignore=ignored)
+    if len(disks) == 0:
+        print("No valid device detected.")
+        exit(0)
     tasks = []
+    ask_confirm(disks)
 
     # Tarallo connection
-    load_dotenv()
-    instance = Tarallo.Tarallo(os.getenv("TARALLO_URL"), os.getenv("TARALLO_TOKEN"))
+    if can_connect:
+        if not quiet:
+            print('\n\n===> Connecting to T.A.R.A.L.L.O. database')
+        load_dotenv()
+        tarallo_instance = TaralloInterface()
+        if not tarallo_instance.connect(os.getenv("TARALLO_URL"), os.getenv("TARALLO_TOKEN")):
+            print("Continuing without T.A.R.A.L.L.O. connection")
+            tarallo_instance = None
 
-    # Adding disks to clean only if into T.A.R.A.L.L.O. database
+    # Adding disks to clean in queue and adding them to Tarallo if not present
+    if not quiet and tarallo_instance is not None:
+        print('\n\n===> Adding disks to T.A.R.A.L.L.O.')
+
     for d in disks:
-        # TODO: add a method that adds disk to tarallo, create a Disk object (or a Tarallo.Item)
-        # TODO: pass that to every other method from here onward
-        disk_code = instance.get_codes_by_feature('sn', d['sn'])
-        if len(disk_code) > 1:
-            print("Multiple disks in the T.A.R.A.L.L.O. database corresponding to the serial number: " + d['sn'])
-        elif len(disk_code) == 0:
-            print("No disk in the T.A.R.A.L.L.O. database corresponding to the serial number: " + d['sn'])
-        else:
-            tasks.append(Task(d))
-        
+        disk = d['features']
+        disk['erased'] = None
+        disk['surface-scan'] = None
+
+        if tarallo_instance is not None:
+            if tarallo_instance.add_disk(disk) is False:
+                print("Something went wrong with Disk addition to database, skipping to the next one")
+                continue
+            d['code'] = tarallo_instance.get_instance().get_codes_by_feature('sn', disk['sn'])
+
+        tasks.append(Task(d))
+
+    # Time to TURBOFRESA
+
     if not quiet:
-        print("===> Cleaning disks")
+        print("\n\n===> Cleaning disks")
+
+    # Create badblock logs folder if not present
+    if not simulate:
+        if 'badblocks_error_logs' not in os.listdir(os.getcwd()):
+            os.mkdir('badblocks_error_logs')
+
+    # Start all tasks
     for t in tasks:
+        if not quiet:
+            print("Started cleaning /dev/" + t.disk['mount_point'])
         if not simulate:
             t.start()
-        else:
-            if not quiet:
-                print("Started cleaning")
 
+    # Wait for threads completition
     for t in tasks:
         if not simulate:
             t.join()
         else:
             if not quiet:
-                print("Ended cleaning")
+                print("Ended cleaning /dev/" + t.disk['mount_point'])
+
+    # TODO: evaluate if removing this piece
+    if simulate and tarallo_instance is not None:
+        for d in disks:
+            tarallo_instance.get_instance().remove_item(d['code'][0])
 
     if args.shutdown is True:
         if not simulate:
