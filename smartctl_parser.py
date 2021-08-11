@@ -63,6 +63,8 @@ def parse_disks(interactive: bool = False, ignore: list = [], usbdebug: bool = F
 
     disks = []
     smartctl_path = os.path.join(os.getcwd(), "smartctl")
+    if not os.path.exists(smartctl_path):
+        os.makedirs(smartctl_path)
 
     filegen = os.path.join(os.getcwd(), "smartctl_filegen.sh")
     return_code = sp.run(["sudo", "-S", filegen, smartctl_path]).returncode
@@ -92,16 +94,15 @@ def parse_disks(interactive: bool = False, ignore: list = [], usbdebug: bool = F
                 raise InputFileNotFoundError(smartctl_path)
 
             # Checks if it's a valid disk
-            # If usbdebug is True a dummy disk is created
-            if '=== START OF INFORMATION SECTION ===' not in output:
+            # If usbdebug is True, the disk is filled with dummy informations
+            disk = read_smartctl(output)
+            if not check_complete(disk):
                 if usbdebug is True:
-                    disk = dummy_disk()
+                    disk = dummy_disk(disk)
                 else:
                     if interactive:
                         print(f"{filename} does not contain disk information, was it a USB stick?")
                     continue
-            else:
-                disk = read_smartctl(output)
 
             disk.dev = filename.split("smartctl-dev-")[1].split(".txt")[0]
 
@@ -116,22 +117,44 @@ def parse_disks(interactive: bool = False, ignore: list = [], usbdebug: bool = F
     return []
 
 
-def dummy_disk():
+def dummy_disk(disk=Disk()):
+    """
+    Creates a dummy disk or, if passed, fills a disk with dummy information where needed
+    """
     from random import choice
     from string import digits
 
-    disk = Disk()
+    dummy = Disk()
 
-    disk.smart_data = SMART.working
-    disk.brand = "USB_TEST"
-    disk.model = "TEST"
-    disk.type = "ssd"
-    disk.capacity = 1
-    disk.form_factor = "2.5-7mm"
-    disk.port = PORT.sata
-    disk.serial_number = 'USB' + ''.join(choice(digits) for i in range(6)) # USBxxxxxx where x is a random digit
+    dummy.smart_data = SMART.working
+    dummy.brand = "USB_TEST"
+    dummy.model = "TEST"
+    dummy.type = "ssd"
+    dummy.capacity = 1
+    dummy.form_factor = "2.5-7mm"
+    dummy.port = PORT.sata
+    dummy.serial_number = 'USB' + ''.join(choice(digits) for i in range(6)) # USBxxxxxx where x is a random digit
+
+    for a in dir(dummy):
+        if a.startswith('__') or callable(getattr(dummy, a)):
+            continue
+        if getattr(disk, a) == "":
+            setattr(disk, a, getattr(dummy, a))
 
     return disk
+
+
+def check_complete(disk):
+    """
+    Check if the disk passed contains all the necessary information to be added to TARALLO
+    """
+    essentials = ['smart_data', 'brand', 'model', 'type', 'capacity', 'form_factor', 'port', 'serial_number']
+
+    for ess in essentials:
+        if getattr(disk, ess) == "":
+            return False
+
+    return True
 
 
 def read_smartctl(smartctl_output):
@@ -207,7 +230,7 @@ def read_smartctl(smartctl_output):
                 disk.brand = brand
 
         elif "Serial Number:" in line:
-            disk.serial_number = line.split("Serial Number:")[1].strip()
+            disk.serial_number = normalize_sn(line.split("Serial Number:")[1].strip())
 
         elif "LU WWN Device Id:" in line:
             disk.wwn = line.split("LU WWN Device Id:")[1].strip()
@@ -268,6 +291,11 @@ def tarallo_conversion(disks: list):
     """
     result = []
     for disk in disks:
+        if disk.smart_data.value == "ok":
+            working = "yes"
+        else:
+            working = "no"
+
         if disk.type == "ssd":  # ssd
             this_disk = {
                 "type": "ssd",
@@ -277,7 +305,8 @@ def tarallo_conversion(disks: list):
                 "wwn": disk.wwn,
                 "sn": disk.serial_number,
                 "capacity-byte": disk.capacity,
-                "smart-data": disk.smart_data.value
+                "smart-data": disk.smart_data.value,
+                "working": working
             }
             if disk.smart_data_long is not SMART.not_available:
                 this_disk['notes'] = disk.smart_data_long
@@ -293,7 +322,8 @@ def tarallo_conversion(disks: list):
                 # tell some functions how to convert it to human-readable format
                 "capacity-decibyte": disk.capacity,
                 "spin-rate-rpm": disk.rotation_rate,
-                "smart-data": disk.smart_data.value
+                "smart-data": disk.smart_data.value,
+                "working": working
             }
         if disk.form_factor is not None:
             this_disk["hdd-form-factor"] = disk.form_factor
@@ -343,6 +373,13 @@ def remove_prefix(prefix, text):
     if text.startswith(prefix):
         return text[len(prefix):]
     return text
+
+
+def normalize_sn(sn: str) -> str:
+    # TODO: add more normalization criteria
+    sn = sn.replace('wd', '')
+    sn = sn.replace('WD', '')
+    return sn
 
 
 def main():

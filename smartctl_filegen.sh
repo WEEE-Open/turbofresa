@@ -17,7 +17,7 @@ rm -f "$OUTPATH"/*.txt
 DISKZ=($(lsblk -d -I 8 -o NAME -n))
 echo Found $((${#DISKZ[@]})) disks
 for d in "${DISKZ[@]}"; do
-	  smartctl -x /dev/$d > "$OUTPATH/smartctl-dev-$d.txt"
+	  smartctl -d sat,auto -T verypermissive -x /dev/$d > "$OUTPATH/smartctl-dev-$d.txt"
 done
 
 exit 0

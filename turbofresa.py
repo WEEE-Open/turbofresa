@@ -24,11 +24,11 @@
 
 import os, sys
 import logging  # TODO: Add log messages
+from tarallo_interface import TaralloInterface
 from multiprocessing import Process
 import subprocess as sp
 import argparse
 import smartctl_parser
-from pytarallo import Tarallo, Errors, Item
 from dotenv import load_dotenv
 
 __version__ = '1.3'
@@ -36,6 +36,7 @@ __version__ = '1.3'
 # Run parameters
 quiet = None
 simulate = None
+can_connect = None
 tarallo_instance = None
 
 
@@ -127,7 +128,14 @@ class Task(Process):
         and the broken hard drive is reported into the log file and informations
         are written to the T.A.R.A.L.L.O. database.
         """
-        code = self.disk['code'][0]
+
+        global tarallo_instance
+
+        if tarallo_instance is not None:
+            code = self.disk['code'][0]
+            filename = 'badblocks_error_logs/' + code + '.txt'
+        else:
+            filename = 'badblocks_error_logs/' + disk['sn'] + '.txt'
         mount_point = self.disk['mount_point']
 
         # Unmounting disk
@@ -139,97 +147,38 @@ class Task(Process):
                     sp.run(["sudo", "umount", os.path.join("/dev", line[0])])
 
         # Cleaning disk
-        filename = 'badblocks_error_logs/' + code + '.txt'
-        process = sp.Popen(['sudo', 'badblocks', '-w', '-t', '0x00', '-o', filename, os.path.join("/dev", mount_point)])
-        process.communicate()
-        exit_code = process.returncode
+        with sp.Popen(['sudo', '-S', 'badblocks', '-s', '-w', '-t', '0x00', '-o', filename, os.path.join("/dev", mount_point)]) as p:
+            success = False
+            try:
+                disk_gb = self.disk['features']['capacity-byte'] / 1024**3
+                mins_per_gb = 2  # TODO: could be set with a config file?
+                timeout = 60 * mins_per_gb * disk_gb
+                p.wait(timeout=timeout)
+                if p.returncode == 0:
+                    success = True
 
-        global quiet
-        if not quiet:
-            print("Ended cleaning /dev/" + mount_point)
+                global quiet
+                if not quiet:
+                    print("Ended cleaning " + os.path.join("/dev/", mount_point))
 
-        if exit_code == 0:
-            os.remove(filename)
-            return True
-        else:
-            # TODO: Write on tarallo that the hard drive is broken
-            # Write it in the turbofresa log file as well
-            global tarallo_instance
-            self.disk['features']['smart-data'] = smartctl_parser.SMART.fail
-            add_to_tarallo_broken(tarallo_instance, self.disk['features'])
-            return False
+            except sp.TimeoutExpired:
+                success = False
+                p.kill()
+            finally:
+                features = self.disk['features']
+                if success is True:
+                    os.remove(filename)
+                    features['data-erased'] = 'yes'
+                    features['surface-scan'] = 'pass'
+                    features['smart-data'] = smartctl_parser.SMART.working
+                else:
+                    features['smart-data'] = smartctl_parser.SMART.fail
+                    features['working'] = 'maybe'
 
+                if tarallo_instance is not None:
+                    tarallo_instance.add_disk(features)
 
-def add_to_tarallo(instance: Tarallo.Tarallo, disk: dict) -> bool:
-    """
-    Adds disk to Tarallo database
-    :param instance: Tarallo instance where to add the disk
-    :param disk: disk to add to the database
-    :return: True if added successfully or it was already present,
-        False if there were multiple instances of it in the database
-    """
-
-    print("\nSearching the T.A.R.A.L.L.O. databse for disk with serial number {}".format(disk['sn']))
-    disk_code = instance.get_codes_by_feature('sn', disk['sn'])
-
-    if len(disk_code) > 1:
-        print("Multiple disks in the database corresponding to the serial number: " + disk['sn'])
-        print("Won't proceed until conflict is solved")
-        return False
-    elif len(disk_code) == 1:
-        print(f"Disk with serial number {disk['sn']} already present in the database"
-              f"with the code {disk_code[0]}")
-        item = instance.get_item(disk_code[0])
-        for key, value in item.features.items():
-            if key == 'smart-data' or key == 'smart-data-long':
-                continue
-            if value != disk[key]:
-                print("There's a conflict in the database for this disk")
-                print("Won't proceed until conflict is solved")
-                return False
-        print("The entry doesn't conflict with the current disk, proceeding anyway")
-        return True
-    elif len(disk_code) == 0:
-        print("No corresponding disk in the database")
-
-    print("Adding disk to the database")
-    item = Item.Item()
-    item.features = disk
-    item.location = 'Polito'  # TODO: maybe it can be set from config or a better default should be picked
-
-    try:
-        instance.add_item(item=item)
-        print("Item inserted successfully")
-    except Errors.ValidationError:
-        print("Item not inserted")
-        response = instance.response
-        print("HTTP status code:", response.status_code, "\n" + response.json()['message'])
-        return False
-
-    print("Successfully added the disk")
-    print("Disk code on the Database: " + instance.get_codes_by_feature('sn', disk['sn'])[0])
-    return True
-
-
-def add_to_tarallo_broken(instance: Tarallo.Tarallo, disk: dict) -> bool:
-    if disk['smart-data'] != smartctl_parser.SMART.fail.value:
-        print("Not a broken disk")
-        return False
-
-    if add_to_tarallo(instance, disk) is False:
-        print("Failed to update informations")
-        return False
-
-    disk_code = instance.get_codes_by_feature('sn', disk['sn'])
-    try:
-        instance.update_features(disk_code[0], disk)
-    except Errors.ValidationError:
-        print("Failed to update informations")
-        response = instance.response
-        print("HTTP status code:", response.status_code, "\n" + response.json()['message'])
-        return False
-
-    return True
+                return success
 
 
 if __name__ == '__main__':
@@ -237,6 +186,7 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--shutdown', action='store_true', help='Shutdown the machine when everything is done.')
     parser.add_argument('-q', '--quiet', action='store_true', help='Run in background and suppress stdout.')
     parser.add_argument('-d', '--dry', action='store_true', help='Launch simulation.')
+    parser.add_argument('--no-tarallo', action='store_false', help="Don't add disks to the T.A.R.A.L.L.O. database.", dest='can_connect')
     parser.add_argument('--usb', action='store_true', help='Allow cleaning of usb drives (DEBUG ONLY!!!)')
     parser.add_argument('--version', '-V', action='version', version='%(prog)s v.' + __version__)
     parser.set_defaults(shutdown=False)
@@ -247,10 +197,11 @@ if __name__ == '__main__':
 
     quiet = args.quiet
     simulate = args.dry
+    can_connect = args.can_connect
 
     print("The program will completely wipe any disk outside system ones connected to the current machine")
 
-    # Preliminary operations
+    # Checking disks to ignore
     if not quiet:
         print('\n\n===> Checking system disks')
     ignored = ignore_sys_disks()
@@ -267,44 +218,50 @@ if __name__ == '__main__':
     ask_confirm(disks)
 
     # Tarallo connection
-    if not quiet:
-        print('\n\n===> Connecting to T.A.R.A.L.L.O. database')
-    load_dotenv()
-    try:
-        tarallo_instance = Tarallo.Tarallo(os.getenv("TARALLO_URL"), os.getenv("TARALLO_TOKEN"))
-    except:
-        print('Failed to connect to the database')
-        exit(1)
-    print('Successfully connected to the database')
+    if can_connect:
+        if not quiet:
+            print('\n\n===> Connecting to T.A.R.A.L.L.O. database')
+        load_dotenv()
+        tarallo_instance = TaralloInterface()
+        if not tarallo_instance.connect(os.getenv("TARALLO_URL"), os.getenv("TARALLO_TOKEN")):
+            print("Continuing without T.A.R.A.L.L.O. connection")
+            tarallo_instance = None
 
     # Adding disks to clean in queue and adding them to Tarallo if not present
-    if not quiet:
+    if not quiet and tarallo_instance is not None:
         print('\n\n===> Adding disks to T.A.R.A.L.L.O.')
 
     for d in disks:
         disk = d['features']
+        disk['erased'] = None
+        disk['surface-scan'] = None
 
-        if add_to_tarallo(tarallo_instance, disk) is False:
-            print("Something went wrong with Disk addition to database, skipping to the next one")
-            continue
+        if tarallo_instance is not None:
+            if tarallo_instance.add_disk(disk) is False:
+                print("Something went wrong with Disk addition to database, skipping to the next one")
+                continue
+            d['code'] = tarallo_instance.get_instance().get_codes_by_feature('sn', disk['sn'])
 
-        d['code'] = tarallo_instance.get_codes_by_feature('sn', disk['sn'])
         tasks.append(Task(d))
 
     # Time to TURBOFRESA
+
     if not quiet:
         print("\n\n===> Cleaning disks")
 
+    # Create badblock logs folder if not present
     if not simulate:
         if 'badblocks_error_logs' not in os.listdir(os.getcwd()):
             os.mkdir('badblocks_error_logs')
 
+    # Start all tasks
     for t in tasks:
         if not quiet:
             print("Started cleaning /dev/" + t.disk['mount_point'])
         if not simulate:
             t.start()
 
+    # Wait for threads completition
     for t in tasks:
         if not simulate:
             t.join()
@@ -312,9 +269,10 @@ if __name__ == '__main__':
             if not quiet:
                 print("Ended cleaning /dev/" + t.disk['mount_point'])
 
-    if simulate:
+    # TODO: evaluate if removing this piece
+    if simulate and tarallo_instance is not None:
         for d in disks:
-            tarallo_instance.remove_item(d['code'][0])
+            tarallo_instance.get_instance().remove_item(d['code'][0])
 
     if args.shutdown is True:
         if not simulate:

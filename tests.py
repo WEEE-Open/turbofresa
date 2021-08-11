@@ -2,6 +2,7 @@ import os
 import subprocess as sp
 from dotenv import load_dotenv
 from pytarallo.Tarallo import Tarallo, Item
+from tarallo_interface import TaralloInterface
 from pytarallo.Errors import *
 import turbofresa
 from smartctl_parser import parse_disks, SMART
@@ -10,24 +11,15 @@ from nose.plugins.skip import SkipTest
 
 
 class Test_Tarallo:
-    # Used to verify intereactions between TARALLO and TURBOFRESA
+    """Verify functioning of TaralloInterface"""
 
     # !!!WARNING!!!
     # Only run this on a test version of the TARALLO!!!
 
-    def setup(self):
-        if not self.connected:
-            raise SkipTest("Not connected to TARALLO")
-        else:
-            codes = self.tarallo_instance.get_codes_by_feature('sn', self.dummy_disk['sn'])
-            if len(codes) > 1:
-                for code in codes:
-                    self.tarallo_instance.remove_item(code)
-            elif len(codes) == 1:
-                self.tarallo_instance.remove_item(codes[0])
-
     @classmethod
     def setup_class(cls):
+
+        # Dummy disk used throughout all the tests
         cls.dummy_disk = {
             'brand': 'PYTHON_TEST',
             'capacity-byte': 1,
@@ -39,6 +31,7 @@ class Test_Tarallo:
             'type': 'ssd',
         }
 
+        # Load url and token from env
         load_dotenv()
         tarallo_url = os.getenv("TARALLO_URL")
         tarallo_token = os.getenv("TARALLO_TOKEN")
@@ -56,26 +49,42 @@ class Test_Tarallo:
         finally:
             if cls.connected is False:
                 print("Couldn't connect to tarallo server")
+            else:
+                cls.tarallo_interface = TaralloInterface(cls.tarallo_instance)
+
+    def setup(self):
+        if not self.connected:
+            # Skip the test if we're not connected to TARALLO
+            raise SkipTest("Not connected to TARALLO")
+        else:
+            # Remove all possible duplicates of the dummy
+            codes = self.tarallo_instance.get_codes_by_feature('sn', self.dummy_disk['sn'])
+            for code in codes:
+                self.tarallo_instance.remove_item(code)
 
     def test_add_disk(self):
-        # Simple disk addition to TARALLO through the TURBOFRESA
+        """Try adding disk to TARALLO"""
 
         disk = self.dummy_disk
 
-        assert turbofresa.add_to_tarallo(self.tarallo_instance, disk) is True
+        # Verify that we don't have any problem adding the disk
+        assert self.tarallo_interface.add_disk(disk) is True
 
+        # Verify that one and only one disk is being added
         disk_code = self.tarallo_instance.get_codes_by_feature('sn', disk['sn'])
         assert len(disk_code) == 1
 
-    def test_add_duplicate(self):
-        # Check if TURBOFRESA refuses to add a duplicate disk (with the same specs),
-        # but anyway continues to wipe it
+    def test_add_duplicate_no_conflict(self):
+        """Try to add a non-conflicting duplicate"""
         disk = self.dummy_disk
 
+        # Check that there are no duplicates
+        assert self.tarallo_interface.check_duplicate(disk) == 0, "TaralloInterface is detecting a duplicate"
+
+        # Manually add the dummy through pytarallo
         item = Item()
         item.features = disk
         item.location = 'Polito'
-
         try:
             self.tarallo_instance.add_item(item=item)
             print("Item inserted successfully")
@@ -83,17 +92,20 @@ class Test_Tarallo:
             print("Item not inserted")
             response = self.tarallo_instance.response
             print("HTTP status code:", response.status_code, "\n" + response.json()['message'])
-            raise AssertionError("Failed to manually add disk to TARALLO")
+            raise AssertionError("Failed to manually add disk through pytarallo")
 
-        assert turbofresa.add_to_tarallo(self.tarallo_instance, disk) is True, "Failed to add disk through" \
-                                                                               "TURBOFRESA"
+        # Verify that check_duplicate doesn't detect a conflicting entry
+        assert self.tarallo_interface.check_duplicate(disk) == 1, "TaralloInterface is detecting a conflicting duplicate"
 
+        # Try to add the duplicate through TaralloInterface
+        assert self.tarallo_interface.add_disk(disk) is True, "Failed to add disk through TaralloInterface"
+
+        # Verify there's only one copy of the disk on TARALLO
         disk_code = self.tarallo_instance.get_codes_by_feature('sn', disk['sn'])
         assert len(disk_code) == 1, "Disk added by error"
 
-    def test_add_conflicting(self):
-        # Check if TURBOFRESA refuses to wipe disk if another one with same serial (but different specs)
-        # is already present to avoid conflicting information on the database
+    def test_add_duplicate_conflict(self):
+        """Try to add a conflicting duplicate"""
 
         disk = self.dummy_disk
         conflicting = dict(disk)
@@ -113,19 +125,25 @@ class Test_Tarallo:
             print("HTTP status code:", response.status_code, "\n" + response.json()['message'])
             raise AssertionError("Failed to manually add disk to TARALLO")
 
-        assert turbofresa.add_to_tarallo(self.tarallo_instance, disk) is False
+        # Check if conflict is detected
+        assert self.tarallo_interface.check_duplicate(disk) == -1, "TaralloInterface didn't detect the conflict"
+
+        # Check if TaralloInterface refuses to add the disk
+        assert self.tarallo_interface.add_disk(disk) is False, "TaralloInterface added the disk anyway"
 
     def test_update_broken(self):
-        # Ensures that in case the disk results broken its TARALLO entry is updated
+        """Update TARALLO with broken disk"""
 
         disk = dict(self.dummy_disk)
-        turbofresa.add_to_tarallo(self.tarallo_instance, disk)
+        self.tarallo_interface.add_disk(disk)
         disk['smart-data'] = SMART.fail.value
-        assert turbofresa.add_to_tarallo_broken(self.tarallo_instance, disk) is True
+
+        # Verify the disk has been added even if duplicate
+        assert self.tarallo_interface.add_disk(disk) is True
 
 
 class Test_Turbofresa:
-    # Tests correct functioning of the parser and the TURBOFRESA
+    """Verify functioning of disk parser and TURBOFRESA"""
 
     def test_smartctl_filegen(self):
         import subprocess as sp
@@ -137,7 +155,6 @@ class Test_Turbofresa:
         return_code = sp.run(["sudo", "-S", filegen, smartctl_path]).returncode
         assert (return_code == 0), 'Error during disk detection'
         sp.run(['sudo', '-S', 'rm', '-rf', smartctl_path])
-
 
     def test_parser(self):
         import sys
